@@ -1,0 +1,12 @@
+RECREATE Queue example__c (
+   label('Example'),
+   active(true),
+   sequential(false),
+   message_delivery_event_handler(),
+   description(),
+   type('inbound'),
+   message_processor_user(''),
+   rollback_on_error(true),
+   message_processor('Messageprocessor.com.veeva.vault.custom.messageprocessors.ExampleProcessor'),
+   message_delivery_event_handler_user()
+);

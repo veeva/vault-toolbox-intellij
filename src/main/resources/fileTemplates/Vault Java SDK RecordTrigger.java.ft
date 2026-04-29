@@ -1,0 +1,36 @@
+#set( $name =  ${Name} + "Trigger")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+    #set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+    #set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * RecordTrigger:			$javaName
+ * Object:					${Object}
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.data.RecordChange;
+import com.veeva.vault.sdk.api.data.RecordEvent;
+import com.veeva.vault.sdk.api.data.RecordTrigger;
+import com.veeva.vault.sdk.api.data.RecordTriggerContext;
+import com.veeva.vault.sdk.api.data.RecordTriggerInfo;
+
+@RecordTriggerInfo(object="${Object}",
+		events = {RecordEvent.BEFORE_INSERT})
+public class $javaName implements RecordTrigger {
+
+	public void execute(RecordTriggerContext context) {
+		for (RecordChange recordChange : context.getRecordChanges()) {
+			//String id = recordChange.getNew().getValue("id", ValueType.STRING);
+			//recordChange.setError("OPERATION_NOT_ALLOWED", "This record cannot be changed");
+			//recordChange.getNew().setValue("comment__c", "SDK");
+		}
+	}
+}

@@ -1,0 +1,7 @@
+RECREATE Jobmetadata example_job__c (
+	active (true),
+	label ('Example Job'),
+	description('Example Job'),
+	chunk_size(1),
+	job_code('Sdkjob.com.veeva.vault.custom.jobs.ExampleJob')
+ );

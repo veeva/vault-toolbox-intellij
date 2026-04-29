@@ -1,0 +1,29 @@
+#set( $name =  ${Name} + "RoleTrigger")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+	#set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+	#set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * RecordRoleTrigger:		$javaName
+ * Object:					${Object}
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.role.*;
+
+@RecordRoleTriggerInfo(object="${Object}",
+		events = {RecordRoleEvent.BEFORE})
+public class $javaName implements RecordRoleTrigger {
+
+	public void execute(RecordRoleTriggerContext context) {
+
+
+	}
+}

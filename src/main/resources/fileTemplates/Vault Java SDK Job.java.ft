@@ -1,0 +1,46 @@
+#set( $name =  ${Name} + "Job")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+    #set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+    #set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * Job Info:				$javaName
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+import com.veeva.vault.sdk.api.core.VaultCollections;
+import com.veeva.vault.sdk.api.job.Job;
+import com.veeva.vault.sdk.api.job.JobCompletionContext;
+import com.veeva.vault.sdk.api.job.JobInfo;
+import com.veeva.vault.sdk.api.job.JobInitContext;
+import com.veeva.vault.sdk.api.job.JobInputSupplier;
+import com.veeva.vault.sdk.api.job.JobProcessContext;
+
+@JobInfo(adminConfigurable = true, idempotent = true, isVisible = true)
+public class DemoJob implements Job {
+    @Override
+    public JobInputSupplier init(JobInitContext context) {
+        return context.newJobInput(VaultCollections.newList());
+    }
+
+	@Override
+	public void process(JobProcessContext jobProcessContext) {
+		
+	}
+
+	@Override
+    public void completeWithSuccess(JobCompletionContext context) {
+
+    }
+
+    @Override
+    public void completeWithError(JobCompletionContext context) {
+
+    }
+}

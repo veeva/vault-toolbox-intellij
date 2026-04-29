@@ -1,0 +1,9 @@
+RECREATE Jobmetadata ${Name} (
+    label('${Label}'),
+    active(true),
+    chunk_size(10),
+    description(),
+    job_code('Sdkjob.com.veeva.vault.custom.jobs.${ProcessorName}'),
+    queue(),
+    single_instance_states()
+);

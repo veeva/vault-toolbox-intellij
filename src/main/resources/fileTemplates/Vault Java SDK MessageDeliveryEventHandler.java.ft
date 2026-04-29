@@ -1,0 +1,26 @@
+#set( $name =  ${Name} + "EventHandler")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+	#set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+	#set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * EventHandler:			$javaName
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.queue.*;
+
+@MessageDeliveryEventHandlerInfo()
+public class $javaName implements MessageDeliveryEventHandler {
+    public void onError(MessageDeliveryEventHandlerContext context) {
+
+	}
+
+}

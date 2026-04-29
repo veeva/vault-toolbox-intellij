@@ -1,0 +1,28 @@
+#set( $name =  ${Name} + "Model")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+    #set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+    #set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * UserDefinedModel:		$javaName
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.core.*;
+import com.veeva.vault.sdk.api.data.*;
+
+@UserDefinedModelInfo(include = UserDefinedPropertyInclude.NON_NULL)
+public interface $javaName extends UserDefinedModel {
+
+	@UserDefinedProperty(name = "name__v", aliases = {"name", "name__c"})
+	String getName();
+	void setName(String name);
+
+}

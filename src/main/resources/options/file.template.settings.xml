@@ -1,0 +1,7 @@
+<application>
+  <component name="ExportableFileTemplateSettings">
+    <default_templates>
+      <template name="Vault MDL WebApi Group.mdl" file-name="WebApi.mdl" reformat="true" live-template-enabled="false" />
+    </default_templates>
+  </component>
+</application>

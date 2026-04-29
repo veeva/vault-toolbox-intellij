@@ -1,0 +1,59 @@
+{
+  parserClass="com.veeva.vault.toolbox.intellij.language.parser.MdlParser"
+
+  extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+
+  psiClassPrefix="Mdl"
+  psiImplClassSuffix="Impl"
+  psiPackage="com.veeva.vault.toolbox.intellij.language.psi"
+  psiImplPackage="com.veeva.vault.toolbox.intellij.language.impl"
+
+  elementTypeHolderClass="com.veeva.vault.toolbox.intellij.language.psi.MdlTypes"
+  elementTypeClass="com.veeva.vault.toolbox.intellij.language.psi.MdlElementType"
+  tokenTypeClass="com.veeva.vault.toolbox.intellij.language.psi.MdlTokenType"
+}
+
+mdlFile ::= item_*
+
+private item_ ::= command_list | COMMENT | CRLF
+
+// Command rules
+command_list ::= change_command | rename_command | drop_command
+    change_command ::= component_change_command | record_change_command
+        component_change_command ::= COMMAND COMPONENT_TYPE_LITERAL OPERATOR? COMPONENT_TYPE command_block
+        record_change_command ::= COMMAND COMPONENT_TYPE OPERATOR? RECORD_NAME command_block
+
+    rename_command ::= component_rename_command | record_rename_command
+        component_rename_command ::= RENAME COMPONENT_TYPE_LITERAL OPERATOR? COMPONENT_TYPE TO OPERATOR? COMPONENT_TYPE SEMICOLON
+        record_rename_command ::= RENAME COMPONENT_TYPE OPERATOR? RECORD_NAME TO OPERATOR? RECORD_NAME SEMICOLON
+
+    drop_command ::= component_drop_command | record_drop_command
+        component_drop_command ::= DROP COMPONENT_TYPE_LITERAL OPERATOR? COMPONENT_TYPE SEMICOLON
+        record_drop_command ::= DROP COMPONENT_TYPE OPERATOR? RECORD_NAME SEMICOLON
+
+// Command block rules
+command_block ::= START_PAREN command_block_content? END_PAREN SEMICOLON? //Made semi colon optional so that completion works nicer. Can change later if needed
+
+private command_block_content ::= command_item (COMMA command_item?)* //Made 2nd command item optional so that completion works nicer. Can change later if needed
+    command_item ::= new_attribute | subcomponent_command_list | attribute_pair
+        new_attribute ::= ATTRIBUTE_LITERAL ATTRIBUTE command_block
+
+        subcomponent_command_list ::= subcomponent_change_command | subcomponent_rename_command | subcomponent_drop_command
+            subcomponent_change_command ::= SUBCOMMAND? COMPONENT_TYPE OPERATOR? RECORD_NAME command_block
+            subcomponent_rename_command ::= SUBCOMMAND COMPONENT_TYPE OPERATOR? RECORD_NAME TO OPERATOR? RECORD_NAME
+            subcomponent_drop_command ::= SUBCOMMAND COMPONENT_TYPE OPERATOR? RECORD_NAME
+
+        attribute_pair ::= ATTRIBUTE (ATTRIBUTE_COMMAND OPERATOR?)? attribute_content (POST_ATTRIBUTE_COMMAND attribute_content?)?
+            attribute_content ::= START_PAREN (attribute_value (COMMA attribute_value)*)? END_PAREN
+                attribute_value ::= xml_block | expression_value | string_value | VALUE
+                    xml_block ::= START_BRACE xml_attribute_value* END_BRACE
+                        xml_attribute_value ::=  (xml_open_tag (xml_attribute_value)* xml_closed_tag) | (xml_open_tag xml_text+ xml_closed_tag) | xml_self_closing_tag | xml_info_tag
+                            xml_open_tag ::= OPEN_ANGLE_BRACKET XML_IDENTIFIER (xml_assignment)* CLOSED_ANGLE_BRACKET
+                            xml_self_closing_tag ::= OPEN_ANGLE_BRACKET XML_IDENTIFIER (xml_assignment)* XML_SLASH CLOSED_ANGLE_BRACKET
+                            xml_closed_tag ::= OPEN_ANGLE_BRACKET XML_SLASH XML_IDENTIFIER CLOSED_ANGLE_BRACKET
+                            xml_assignment ::= XML_ATTRIBUTE EQUALS XML_VALUE
+                            xml_info_tag ::= OPEN_ANGLE_BRACKET QUESTION XML_IDENTIFIER (xml_assignment)* QUESTION CLOSED_ANGLE_BRACKET
+                            xml_text ::= XML_TAG_CONTENT
+
+                    expression_value ::= START_BRACKET VALUE* END_BRACKET
+                    string_value ::= (START_QUOTE VALUE* END_QUOTE)

@@ -1,0 +1,27 @@
+#set( $name =  ${Name} + "Service")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+    #set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+    #set( $javaName = $javaName + $str )
+#end
+#set( $javaNameImpl =  ${javaName} + "Impl")
+
+/*
+ * --------------------------------------------------------------------
+ * UserDefinedService:	    $javaName
+ * Author:				    ${USER}
+ * Date:				    ${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.core.*;
+    
+@UserDefinedServiceInfo
+public class $javaNameImpl implements $javaName {
+    @Override
+    public boolean exampleMethod() {
+        return true;
+    }
+}

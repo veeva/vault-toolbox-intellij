@@ -1,0 +1,154 @@
+package com.veeva.vault.toolbox.core.models;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.veeva.vault.vapil.api.model.VaultModel;
+
+public class SdkDebugLogEntry extends VaultModel {
+
+	@JsonProperty("timestamp")
+	public String getTimestanp() { return this.getString("timestamp"); }
+	public void setTimestamp(String timestamp) { this.set("timestamp", timestamp); }
+
+	@JsonProperty("execution_id")
+	public String getExecutionId() { return this.getString("execution_id"); }
+	public void setExecutionId(String executionId) { this.set("execution_id", executionId); }
+
+	@JsonProperty("vault_id")
+	public String getVaultId() { return this.getString("vault_id"); }
+	public void setVaultId(String vaultId) { this.set("vault_id", vaultId); }
+
+	@JsonProperty("user_id")
+	public String getUserId() { return this.getString("user_id"); }
+	public void setUserId(String userId) { this.set("user_id", userId); }
+
+	@JsonProperty("transaction_id")
+	public String getTransactionId() { return this.getString("transaction_id"); }
+	public void setTransactionId(String transactionId) { this.set("transaction_id", transactionId); }
+
+	@JsonProperty("log_file")
+	public String getLogFile() { return this.getString("log_file"); }
+	public void setLogFile(String logFile) { this.set("log_file", logFile); }
+
+	@JsonProperty("type")
+	public String getType() { return this.getString("type"); }
+	public void setType(String type) { this.set("type", type); }
+
+	@JsonProperty("category")
+	public String getCategory() { return this.getString("category"); }
+	public void setCategory(String category) { this.set("category", category); }
+
+	@JsonProperty("class_name")
+	public String getClassName() { return this.getString("class_name"); }
+	public void setClassName(String className) { this.set("class_name", className); }
+
+	@JsonProperty("service_method")
+	public String getServiceMethod() { return this.getString("service_method"); }
+	public void setServiceMethod(String serviceMethod) {
+		this.set("service_method", serviceMethod);
+	}
+
+	@JsonProperty("service_name")
+	public String getServiceName() {
+		String serviceMethod = getServiceMethod();
+		if (serviceMethod != null) {
+			return serviceMethod.substring(0, serviceMethod.indexOf("#"));
+		}
+		return null;
+	}
+
+	@JsonProperty("method_name")
+	public String getMethodName() {
+		String serviceMethod = getServiceMethod();
+		if (serviceMethod != null) {
+			return serviceMethod.substring(serviceMethod.indexOf("#") + 1);
+		}
+		return null;
+	}
+
+	@JsonProperty("elapsed_time_ms")
+	public Long getElapsedTime() { return this.getLong("elapsed_time_ms", Long.valueOf(0)); }
+	public void setElapsedTime(Long elapsedTime) {
+		this.set("elapsed_time_ms", elapsedTime);
+	}
+
+	@JsonProperty("elapsed_time_seconds")
+	public Double getElapsedTimeSeconds() {
+		return getLongAsDouble(getElapsedTime(), 1000);
+	}
+
+	@JsonProperty("cpu_time_ns")
+	public Long getCpuTime() { return this.getLong("cpu_time_ns", Long.valueOf(0)); }
+	public void setCpuTime(Long cpuTime) { this.set("cpu_time_ns", cpuTime); }
+
+	@JsonProperty("cpu_time_seconds")
+	public Double getCpuTimeSeconds() {
+		return getLongAsDouble(getCpuTime(), 1000000000);
+	}
+
+	@JsonProperty("memory")
+	public Long getMemory() { return this.getLong("memory", Long.valueOf(0)); }
+	public void setMemory(Long memory) { this.set("memory", memory); }
+
+	@JsonProperty("memory_mb")
+	public Double getMemoryMb() {
+		return getLongAsDouble(getMemory(), 1000000);
+	}
+
+	@JsonProperty("gross_memory")
+	public Long getGrossMemory() { return this.getLong("gross_memory", Long.valueOf(0)); }
+	public void setGrossMemory(Long grossMemory) { this.set("gross_memory", grossMemory); }
+
+	@JsonProperty("gross_memory_mb")
+	public Double getGrossMemoryMb() {
+		return getLongAsDouble(getGrossMemory(), 1000000);
+	}
+
+	@JsonProperty("invocation_count")
+	public Long getInvocationCount() { return this.getLong("invocation_count", Long.valueOf(0)); }
+	public void setInvocationCount(Long invocationCount) { this.set("invocation_count", invocationCount); }
+
+	@JsonProperty("message")
+	public String getMessage() { return this.getString("message"); }
+	public void setMessage(String message) { this.set("message", message); }
+
+
+	private Integer getInteger(String fieldName, Integer defaultValue) {
+		Integer value = this.getInteger(fieldName);
+		if (value != null) {
+			return value;
+		}
+		return defaultValue;
+	}
+
+	private Long getLong(String fieldName, Long defaultValue) {
+		Long value = this.getLong(fieldName);
+		if (value != null) {
+			return value;
+		}
+		return defaultValue;
+	}
+
+	private Double getIntegerAsDouble(Integer value, Integer factor) {
+		if (value != null) {
+			if (factor != null && factor.intValue() > 0) {
+				return Double.valueOf(value) / factor;
+			}
+			else {
+				return Double.valueOf(value);
+			}
+		}
+		return null;
+	}
+
+	private Double getLongAsDouble(Long value, Integer factor) {
+		if (value != null) {
+			if (factor != null && factor.intValue() > 0) {
+				return Double.valueOf(value) / factor;
+			}
+			else {
+				return Double.valueOf(value);
+			}
+		}
+		return null;
+	}
+}

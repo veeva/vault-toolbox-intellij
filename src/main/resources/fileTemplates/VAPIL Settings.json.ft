@@ -1,0 +1,17 @@
+{
+	"authenticationType": "BASIC",
+	"idpOauthAccessToken": "",
+	"idpOauthScope": "openid",
+	"idpUsername": "",
+	"idpPassword": "",
+	"vaultUsername": "${UserName}",
+	"vaultPassword": "${Password}",
+	"vaultDNS": "${VaultDns}",
+	"vaultSessionId": "",
+	"vaultClientId": "vapil-demo",
+	"vaultOauthClientId": "",
+	"vaultOauthProfileId": "",
+	"logApiErrors": true,
+	"httpTimeout": null,
+	"validateSession": true
+}

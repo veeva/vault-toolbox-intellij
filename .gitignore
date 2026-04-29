@@ -1,0 +1,34 @@
+#build
+build/
+target/
+*.class
+*.ear
+test.properties
+dependency-reduced-pom.xml
+
+#universal ignore
+ignore/
+
+# Mac Files
+.DS_Store
+
+#IntelliJ
+.idea/
+*.iml
+
+#Eclipse
+.settings/
+.project/
+.eclipse
+
+#Gradle
+.gradle
+gradle/wrapper
+gradlew
+gradlew.bat
+
+# Log file
+*.log
+*.logs
+/settings/
+/.intellijPlatform/

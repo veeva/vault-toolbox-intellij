@@ -1,0 +1,27 @@
+#set( $name =  ${Name} + "WorkflowAction")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+	#set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+	#set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * RecordWorkflowAction:	$javaName
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.workflow.*;
+
+@RecordWorkflowActionInfo(label="${Label}",
+		stepTypes={WorkflowStepType.START})
+public class $javaName implements RecordWorkflowAction {
+
+	public void execute(RecordWorkflowActionContext context) {
+
+	}
+}

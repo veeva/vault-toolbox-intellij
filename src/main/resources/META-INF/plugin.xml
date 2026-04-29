@@ -1,0 +1,220 @@
+<!-- Copyright 2000-2022 JetBrains s.r.o. and other contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file. -->
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+
+<idea-plugin>
+
+    <id>com.veeva.vault.toolbox</id>
+
+    <name>Vault Toolbox</name>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.java</depends>
+
+    <description>
+        <![CDATA[
+        <p>Integrates Veeva Vault development and administration workflows directly into IntelliJ IDEA.</p>
+        <br/>
+        <b>Features:</b>
+        <ul>
+            <li>Manage and switch between multiple Vault environments (Dev, QA, Prod Vaults and PVMs).</li>
+            <li>Download and analyze Developer Logs (API Usage, SDK Debug, SDK Runtime, and SDK Profiler).</li>
+            <li>Download Configuration Reports directly into your workspace.</li>
+            <li>Extract MDL and Vault Packages (VPK), automatically organized by Vault ID.</li>
+            <li>Language support for MDL and VPK files, including syntax highlighting, formatting, and auto-completion.</li>
+            <li>Project templates for Vault API Integration, Java SDK, and Custom Pages.</li>
+        </ul>
+        ]]>
+    </description>
+
+    <change-notes>
+        <![CDATA[
+        <ul>
+            <li><b>26.1.0</b></li>
+            <li>Organize downloaded Configuration Reports into a <code>VaultName/YYYY-MM-DD</code> folder structure.</li>
+            <li>Separate extracted MDL components into Vault ID subdirectories.</li>
+            <li>Support opening downloaded <code>.xlsm</code> Configuration Reports with the native OS spreadsheet viewer.</li>
+            <li>Prevent duplicate background task execution when downloading Configuration Reports.</li>
+            <li>Add custom UI icons for the Toolbox root and Distribution directories.</li>
+        </ul>
+        ]]>
+    </change-notes>
+
+    <vendor email="vaultdeveloperhelp@veeva.com" url="https://www.veeva.com">Veeva Systems</vendor>
+
+    <actions>
+        <action id="ToolbarPopupActions.Main.LinkProject"
+                class="com.veeva.vault.toolbox.intellij.actions.LinkProjectAction"
+                text="Enable Vault Toolbox"
+                description="Enable Vault Toolbox"
+                icon="ToolboxIcons.Link">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last" />
+        </action>
+
+        <group text="Veeva Vault" id="ToolboxProjectMenu" icon="ToolboxIcons.Menu" popup="true"
+               class="com.veeva.vault.toolbox.intellij.groups.VeevaMenuGroup">
+            <add-to-group  group-id="ProjectViewPopupMenu" anchor="last" />
+            <separator />
+
+            <action id="ToolboxProjectMenu.UnlinkProject"
+                    class="com.veeva.vault.toolbox.intellij.actions.UnlinkProjectAction"
+                    text="Disable Vault Toolbox"
+                    description="Disable Vault Toolbox"
+                    icon="ToolboxIcons.Close">
+            </action>
+            <action id="ToolboxProjectMenu.DownloadAnalyzeLogAction"
+                    class="com.veeva.vault.toolbox.intellij.actions.DownloadAnalyzeLogAction"
+                    text="Download and Analyze Logs" />
+            <action id="ToolboxProjectMenu.DeployAction"
+                    icon="ToolboxIcons.Upload"
+                    class="com.veeva.vault.toolbox.intellij.actions.DeployAction"
+                    text="Deploy to Vault" />
+            <action
+                    id="ToolboxProjectMenu.DropAction"
+                    class="com.veeva.vault.toolbox.intellij.actions.DropAction"
+                    text="Drop from Vault" />
+
+            <group text="Mark As..." id="ToolboxProjectMenu.MarkAs" popup="true"
+                   class="com.veeva.vault.toolbox.intellij.groups.VeevaMenuGroup">
+                <action icon="ToolboxIcons.Logs"
+                        id="ToolboxProjectMenu.MarkAsConfigAction"
+                        class="com.veeva.vault.toolbox.intellij.actions.MarkAsConfigAction"
+                        text="Config Root" />
+                <action icon="ToolboxIcons.Logs"
+                        id="ToolboxProjectMenu.MarkAsLogsAction"
+                        class="com.veeva.vault.toolbox.intellij.actions.MarkAsLogsAction"
+                        text="Logs Root" />
+                <action icon="ToolboxIcons.Mdl"
+                        id="ToolboxProjectMenu.MarkAsMdlAction"
+                        class="com.veeva.vault.toolbox.intellij.actions.MarkAsMdlAction"
+                        text="Mdl Root" />
+                <action icon="ToolboxIcons.VpkFolder"
+                        id="ToolboxProjectMenu.MarkAsVpkAction"
+                        class="com.veeva.vault.toolbox.intellij.actions.MarkAsVpkAction"
+                        text="Vpk Root" />
+            </group>
+            <separator />
+        </group>
+
+        <group text="Veeva Vault" id="ToolboxEditorMenu" icon="ToolboxIcons.Menu" popup="true"
+               class="com.veeva.vault.toolbox.intellij.groups.VeevaMenuGroup">
+            <add-to-group group-id="EditorPopupMenu" anchor="last" />
+            <add-to-group group-id="GenerateGroup" anchor="last" />
+            <separator />
+
+            <action id="ToolboxEditorMenu.DeployAction"
+                    icon="ToolboxIcons.Upload"
+                    class="com.veeva.vault.toolbox.intellij.actions.DeployAction"
+                    text="Deploy to Vault" />
+            <action
+                    id="ToolboxEditorMenu.DropAction"
+                    class="com.veeva.vault.toolbox.intellij.actions.DropAction"
+                    text="Drop from Vault" />
+
+            <separator />
+        </group>
+
+        <group text="Veeva Vault" id="ToolboxToolsMenu" icon="ToolboxIcons.Menu" popup="true"
+               class="com.veeva.vault.toolbox.intellij.groups.VeevaMenuGroup">
+            <add-to-group  group-id="ToolsMenu" anchor="last" />
+            <separator />
+
+            <action id="ToolboxToolsMenu.UnlinkProject"
+                    class="com.veeva.vault.toolbox.intellij.actions.UnlinkProjectAction"
+                    text="Unlink Vault Toolbox Project"
+                    description="Unlink Toolbox Project"
+                    icon="ToolboxIcons.Close">
+            </action>
+
+            <separator />
+        </group>
+    </actions>
+
+    <applicationListeners>
+        <listener class="com.veeva.vault.toolbox.intellij.listeners.ProjectCloseListener"
+                  topic="com.intellij.openapi.project.ProjectManagerListener"/>
+    </applicationListeners>
+    <projectListeners>
+        <listener class="com.veeva.vault.toolbox.intellij.listeners.ToolboxFileListener" topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    </projectListeners>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService serviceImplementation="com.veeva.vault.toolbox.intellij.settings.VaultSettings"/>
+        <projectService serviceImplementation="com.veeva.vault.toolbox.intellij.settings.FileSettings"/>
+
+        <toolWindow id="Vault Toolbox" secondary="true" icon="ToolboxIcons.Disconnected" anchor="right"
+                    factoryClass="com.veeva.vault.toolbox.intellij.ui.ToolWindowPanel"/>
+
+        <applicationConfigurable parentId="tools" instance="com.veeva.vault.toolbox.intellij.settings.AppSettingsConfigurable"
+                                 id="com.veeva.vault.toolbox.intellij.settings.AppSettingsConfigurable"
+                                 displayName="Vault Toolbox"/>
+
+        <applicationService serviceImplementation="com.veeva.vault.toolbox.intellij.settings.AppSettings"/>
+
+        <projectTemplate projectType="Vault API Integration" templatePath="/projectTemplates/vault-api-integration-template.zip"
+                         category="true" />
+        <projectTemplate projectType="Vault Java SDK Hello World" templatePath="/projectTemplates/vault-java-sdk-template.zip"
+                         category="true" />
+        <projectTemplate projectType="Vault Custom Page" templatePath="/projectTemplates/vault-custom-page-template.zip"
+                         category="true" />
+        <projectTemplate projectType="Vault Research" templatePath="/projectTemplates/vault-research-template.zip"
+                         category="true" />
+
+        <defaultLiveTemplates file="/liveTemplates/Vault API Library.xml"/>
+        <liveTemplateContext implementation="com.veeva.vault.toolbox.intellij.templates.VapilContext"
+                             contextId="VAPIL"/>
+
+        <defaultLiveTemplates file="/liveTemplates/Vault Java SDK.xml"/>
+        <liveTemplateContext implementation="com.veeva.vault.toolbox.intellij.templates.VaultJavaSdkContext"
+                             contextId="VAULT_JAVA_SDK"/>
+
+        <fileType
+                name="MDL File"
+                implementationClass="com.veeva.vault.toolbox.intellij.language.MdlFileType"
+                fieldName="INSTANCE"
+                language="MDL"
+                extensions="mdl"/>
+
+        <fileType
+                name="VPK File"
+                implementationClass="com.veeva.vault.toolbox.intellij.language.VpkFileType"
+                fieldName="INSTANCE"
+                language="VPK"
+                extensions="vpk"/>
+
+        <fileType name="Native" extensions="xlsm"/>
+
+        <lang.parserDefinition
+                language="MDL"
+                implementationClass="com.veeva.vault.toolbox.intellij.language.MdlParserDefinition"/>
+
+        <lang.syntaxHighlighterFactory
+                language="MDL"
+                implementationClass="com.veeva.vault.toolbox.intellij.language.MdlSyntaxHighlighterFactory"/>
+
+        <completion.contributor
+                language="MDL"
+                implementationClass="com.veeva.vault.toolbox.intellij.language.completion.MdlCompletionContributor"/>
+
+        <colorSettingsPage
+                implementation="com.veeva.vault.toolbox.intellij.language.MdlColorSettingsPage"/>
+
+        <lang.commenter
+                language="MDL"
+                implementationClass="com.veeva.vault.toolbox.intellij.language.MdlCommenter"/>
+
+        <lang.braceMatcher
+                language="MDL"
+                implementationClass="com.veeva.vault.toolbox.intellij.language.MdlBraceMatcher"/>
+
+        <lang.formatter
+                language="MDL"
+                implementationClass="com.veeva.vault.toolbox.intellij.language.formatter.MdlFormattingModelBuilder"/>
+
+        <lang.foldingBuilder language="MDL" implementationClass="com.veeva.vault.toolbox.intellij.language.MdlFoldingBuilder"/>
+
+        <iconProvider implementation="com.veeva.vault.toolbox.intellij.listeners.ToolboxIconProvider" order="first"/>
+        <langCodeStyleSettingsProvider implementation="com.veeva.vault.toolbox.intellij.language.MdlLanguageCodeStyleSettingsProvider" id="MdlLanguageCodeStyleSettingsProvider"/>
+        <virtualFileManagerListener implementation="com.veeva.vault.toolbox.intellij.listeners.ToolboxFileListener" />
+    </extensions>
+</idea-plugin>

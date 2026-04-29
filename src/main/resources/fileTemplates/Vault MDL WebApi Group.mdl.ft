@@ -1,0 +1,5 @@
+RECREATE Webapigroup ${Name} (
+    label('${Label}'),
+    active(true),
+    description('${Description}')
+);

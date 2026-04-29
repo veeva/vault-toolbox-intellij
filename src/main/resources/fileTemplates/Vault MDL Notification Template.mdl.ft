@@ -1,0 +1,12 @@
+RECREATE Notificationtemplate ${Name} (
+    label('${Label}'),
+    active(true),
+    description(),
+    email_preferences('every_occurrence__sys'),
+    referenced_component(),
+    subject('Demo'),
+    notification('Example Notification Text'),
+    email_body('Example Body Text'),
+    entity_type('object'),
+    notification_category('none__sys')
+);

@@ -1,0 +1,12 @@
+<templateSet group="Vault API Library">
+  <template name="api_auth" value="VaultClientId vaultClientId = new VaultClientId(&quot;verteobiotech&quot;,&quot;vault&quot;,&quot;quality&quot;,true,&quot;myintegration&quot;);&#10;// Instantiate the VAPIL VaultClient using user name and password authentication&#10;VaultClient vaultClient = VaultClientBuilder&#10;&#9;&#9;.newClientBuilder(VaultClient.AuthenticationType.BASIC)&#10;&#9;&#9;.withVaultDNS(&quot;verteobiotech.veevavault.com&quot;)&#10;&#9;&#9;.withVaultUsername(&quot;username@verteobiotech.com&quot;)&#10;&#9;&#9;.withVaultPassword(&quot;password&quot;)&#10;&#9;&#9;.withVaultClientId(vaultClientId)&#10;&#9;&#9;.build();" description="" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="VAPIL" value="true" />
+    </context>
+  </template>
+  <template name="api_query" value="String vaultClientId = &quot;verteobiotech-vault-quality-client-myintegration&quot;;&#10;// Instantiate the VAPIL VaultClient using user name and password authentication&#10;VaultClient vaultClient = VaultClient&#10;        .newClientBuilder(VaultClient.AuthenticationType.BASIC)&#10;        .withVaultDNS(&quot;verteobiotech.veevavault.com&quot;)&#10;        .withVaultUsername(&quot;username@verteobiotech.com&quot;)&#10;        .withVaultPassword(&quot;password&quot;)&#10;        .withVaultClientId(vaultClientId)&#10;        .build();&#10;// Perform a VQL query and display the results&#10;QueryResponse resp = vaultClient.newRequest(QueryRequest.class)&#10;        .query(&quot;SELECT name__v, email__sys FROM user__sys MAXROWS 3&quot;);&#10;if (resp != null) {&#10;    System.out.println(&quot;-----------------------------------------&quot;);&#10;    System.out.println(&quot;Response Status = &quot; + resp.getResponseStatus());&#10;    System.out.println(&quot;Total Records = &quot; + resp.getData().size());&#10;    for (QueryResponse.QueryResult row : resp.getData())&#10;        System.out.println(&quot;Name = &quot; + row.get(&quot;name__v&quot;) + &quot;, Email = &quot; + row.get(&quot;email__sys&quot;));&#10;}" description="" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="VAPIL" value="true" />
+    </context>
+  </template>
+</templateSet>

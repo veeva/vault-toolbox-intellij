@@ -1,0 +1,32 @@
+#set( $name =  ${Name} + "Handler")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+    #set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+    #set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * RecordMergeEventHandler:	$javaName
+ * Object:					${Object}
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.data.*;
+
+@RecordMergeEventHandlerInfo(object="${Object}")
+public class $javaName implements RecordMergeEventHandler {
+
+	@Override
+	public void onMergeStart(RecordMergeEventStartContext context) {
+	}
+
+	@Override
+	public void onMergeComplete(RecordMergeEventCompletionContext context) {
+	}
+}
+}

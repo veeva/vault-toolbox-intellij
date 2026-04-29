@@ -1,0 +1,42 @@
+#set( $name =  ${Name} + "Api")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+    #set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+    #set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * WebApi		:			$javaName
+ * Endpoint:				${Endpoint}
+ * WebApiGroup:				${WebApiGroup}
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.core.ServiceLocator;
+import com.veeva.vault.sdk.api.executeas.ExecuteAs;
+import com.veeva.vault.sdk.api.executeas.ExecuteAsUser;
+import com.veeva.vault.sdk.api.json.JsonObjectBuilder;
+import com.veeva.vault.sdk.api.json.JsonService;
+import com.veeva.vault.sdk.api.webapi.*;
+
+@ExecuteAs(ExecuteAsUser.REQUEST_OWNER)
+@WebApiInfo(endpointName = "${Endpoint}", minimumVersion = "v24.3", apiGroup = "${WebApiGroup}")
+public class $javaName implements WebApi {
+	@Override
+	public WebApiResponse execute(WebApiContext webApiContext) {
+
+		JsonService jsonService = ServiceLocator.locate(JsonService.class);
+		JsonObjectBuilder responseDataBuilder = jsonService.newJsonObjectBuilder()
+				.setValue("demo", true);
+
+		return webApiContext.newWebApiResponseBuilder()
+				.withResponseStatus(WebApiResponseStatus.SUCCESS)
+				.withData(responseDataBuilder.build())
+				.build();
+	}
+}

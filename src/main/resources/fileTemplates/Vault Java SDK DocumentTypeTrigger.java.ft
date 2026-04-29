@@ -1,0 +1,34 @@
+#set( $name =  ${Name} + "Trigger")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+    #set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+    #set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * DocumentTypeTrigger:		$javaName
+ * Doctype:					${DocType}
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.document.*;
+
+@DocumentTypeTriggerInfo(
+		documentType = "${DocType}",
+		events = {DocumentVersionEvent.BEFORE_UPDATE},
+		level = DocumentVersionEventLevel.DOCUMENT_VERSION)
+public class $javaName implements DocumentTypeTrigger {
+
+	public void execute(DocumentTypeTriggerContext context) {
+		for (DocumentVersionChange documentVersionChange : context.getDocumentVersionChanges()) {
+			//String name = documentVersionChange.getNew().getValue("name__v", ValueType.STRING);
+			//documentVersionChange.setError("OPERATION_NOT_ALLOWED", "This document version cannot be changed");
+			//documentVersionChange.getNew().setValue("title__v", "SDK");
+		}
+	}
+}

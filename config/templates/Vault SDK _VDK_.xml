@@ -1,0 +1,157 @@
+<templateSet group="Vault SDK (VDK)">
+  <template name="vdkrecordlifecyclechange" value="String newLifecycle = objRecord.getNew().getValue(OBJFIELD_STATE, ValueType.STRING);&#10;String oldLifecycle = objRecord.getOld().getValue(OBJFIELD_STATE, ValueType.STRING);&#10;if ((!newLifecycle.equals(oldLifecycle)) &amp;&amp; (newLifecycle.equals(LC_STATE_VALUE))) {&#10;}" description="Compare Lifecycle" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_STATEMENT" value="true" />
+    </context>
+  </template>
+  <template name="vdkqueryexecute" value="QueryService queryService = ServiceLocator.locate(QueryService.class);&#10;Query query = queryService&#10;&#9;&#9;.newQueryBuilder()&#10;&#9;&#9;.withSelect(asList(&quot;id&quot;))&#10;&#9;&#9;.withFrom(&quot;documents&quot;)&#10;&#9;&#9;.build();&#10;&#10;QueryExecutionRequest queryRequest = queryService&#10;&#9;&#9;.newQueryExecutionRequestBuilder()&#10;&#9;&#9;.withQuery(query)&#10;&#9;&#9;.build();&#10;&#10;queryService.query(queryRequest)&#10;&#9;&#9;.onSuccess(queryResponse -&gt; {})&#10;&#9;&#9;.onError(queryOperationError -&gt; {})&#10;&#9;&#9;.execute();" description="Query Builder - Execute" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkrecordtriggerloop" value="for (RecordChange recordChange : context.getRecordChanges()) {&#10;&#9;//String id = recordChange.getNew().getValue(&quot;id&quot;, ValueType.STRING);&#10;&#9;//recordChange.setError(&quot;CUSTOM_SDK&quot;, &quot;This failed!&quot;);&#10;&#9;//recordChange.getNew().setValue(&quot;comment__c&quot;, &quot;SDK&quot;);&#10;}" description="Record Loop" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdklogger" value="LogService logger = ServiceLocator.locate(LogService.class);&#10;logger.debug(&quot;&quot;);" description="Logger" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkrecordactionloop" value="for (Record record : context.getRecords()) {&#10;}" description="Record Loop" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkdocumentactionloop" value="for (DocumentVersion documentVersion : context.getDocumentVersions()) {&#10;}" description="Document Loop" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkrecordlifecyclevariable" value="private static final String LC_STATE_VALUE = &quot;lifecycle_state__c&quot;;" description="Static Variable" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="COMPLETION" value="false" />
+      <option name="JAVA_CODE" value="true" />
+      <option name="JAVA_COMMENT" value="false" />
+      <option name="JAVA_EXPRESSION" value="false" />
+      <option name="JAVA_STATEMENT" value="false" />
+      <option name="JAVA_STRING" value="false" />
+    </context>
+  </template>
+  <template name="vdkexternalid" value="private static final String SDK_EXTERNAL_ID = &quot;ComponentName&quot;;" description="Static Variable" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="COMPLETION" value="false" />
+      <option name="JAVA_CODE" value="true" />
+      <option name="JAVA_COMMENT" value="false" />
+      <option name="JAVA_EXPRESSION" value="false" />
+      <option name="JAVA_STATEMENT" value="false" />
+      <option name="JAVA_STRING" value="false" />
+    </context>
+  </template>
+  <template name="vdkquefield" value="private static final String QUEFIELD_ = &quot;&quot;;" description="Static Variable" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_DECLARATION" value="true" />
+    </context>
+  </template>
+  <template name="vdkapifield" value="private static final String APIFIELD_ = &quot;&quot;;" description="Static Variable" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_DECLARATION" value="true" />
+    </context>
+  </template>
+  <template name="vdkobjfield" value="private static final String OBJFIELD_ = &quot;&quot;;" description="Static Variable" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_DECLARATION" value="true" />
+    </context>
+  </template>
+  <template name="vdkdocifield" value="private static final String DOCFIELD_ = &quot;&quot;;" description="Static Variable" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_DECLARATION" value="true" />
+    </context>
+  </template>
+  <template name="vdksleep" value="RuntimeService runtimeService = ServiceLocator.locate(RuntimeService.class);&#10;runtimeService.sleep(1000);" description="Sleep" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkrecordservice" value="RecordService recordService = ServiceLocator.locate(RecordService.class);&#10;Record record = recordService.newRecordWithId(&quot;simple__c&quot;, &quot;V4G000000004001&quot;);&#10;record.setValue(&quot;comment__c&quot;, &quot;SDK&quot;);&#10;recordService.batchSaveRecords(asList(record))&#10;&#9;&#9;.rollbackOnErrors()&#10;&#9;&#9;.execute();" description="RecordService" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkdocumentservice" value="DocumentService documentService = ServiceLocator.locate(DocumentService.class);&#10;DocumentVersion documentVersion = documentService.newVersionWithId(&quot;5_0_1&quot;);&#10;//String docID = documentVersion.getValue(&quot;id&quot;, ValueType.STRING);&#10;//documentVersion.setValue(&quot;name__v&quot;, &quot;SDK&quot;);&#10;documentService.saveDocumentVersions(asList(documentVersion));" description="DocumentService" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkqueueservice" value="QueueService queueService = ServiceLocator.locate(QueueService.class);&#10;Message message = queueService.newMessage(&quot;my_local&quot;);&#10;message.setMessageItems(versionList);&#10;queueService.putMessage(message);" description="QueueService" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkconnectionservice" value="onnectionService connectionService = ServiceLocator.locate(ConnectionService.class);&#10;ConnectionContext connectionContext = connectionService.newConnectionContext(&#10;&#9;&#9;&quot;test&quot;,&#10;&#9;&#9;ConnectionUser.CONNECTION_AUTHORIZED_USER);" description="ConnectionService" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkjson" value="JsonService jsonService = ServiceLocator.locate(JsonService.class);" description="JsonService" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkqueryvalidate" value="QueryService queryService = ServiceLocator.locate(QueryService.class);&#10;Query query = queryService&#10;&#9;&#9;.newQueryBuilder()&#10;&#9;&#9;.withSelect(asList(&quot;id&quot;))&#10;&#9;&#9;.withFrom(&quot;documents&quot;)&#10;&#9;&#9;.build();&#10;&#10;QueryValidationRequest queryRequest  = queryService&#10;&#9;&#9;.newQueryValidationRequestBuilder()&#10;&#9;&#9;.withQuery(query)&#10;&#9;&#9;.build();&#10;&#10;queryService.validate(queryRequest)&#10;&#9;&#9;.onSuccess(queryResponse -&gt; {})&#10;&#9;&#9;.onError(queryOperationError -&gt; {})&#10;&#9;&#9;.execute();" description="Query Builder - Validate" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkquerycount" value="QueryService queryService = ServiceLocator.locate(QueryService.class);&#10;Query query = queryService&#10;&#9;&#9;.newQueryBuilder()&#10;&#9;&#9;.withSelect(asList(&quot;id&quot;))&#10;&#9;&#9;.withFrom(&quot;documents&quot;)&#10;&#9;&#9;.build();&#10;&#10;QueryCountRequest queryCountRequest  = queryService&#10;&#9;&#9;.newQueryCountRequestBuilder()&#10;&#9;&#9;.withQuery(query)&#10;&#9;&#9;.build();&#10;&#10;queryService.count(queryCountRequest)&#10;&#9;&#9;.onSuccess(queryResponse -&gt; {})&#10;&#9;&#9;.onError(queryOperationError -&gt; {})&#10;&#9;&#9;.execute();" description="Query Builder - Count" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkhttp" value="LogService logger = ServiceLocator.locate(LogService.class);&#10;HttpService httpService = ServiceLocator.locate(HttpService.class);&#10;HttpRequest httpRequest = httpService.newHttpRequest(&quot;local&quot;)&#10;&#9;&#9;.setMethod(HttpMethod.GET)&#10;&#9;&#9;.appendPath(&quot;api/v22.1/objects/users/me&quot;)&#10;&#9;&#9;.setResolveTokens(true);&#10;&#10;httpService.send(httpRequest, HttpResponseBodyValueType.STRING)&#10;&#9;&#9;.onError(response -&gt; {&#10;&#9;&#9;&#9;String errorMessage = &quot;HTTP Status Code: &quot; + response.getHttpResponse().getHttpStatusCode();&#10;&#9;&#9;&#9;logger.error(&quot;error = {}&quot;, errorMessage);&#10;&#9;&#9;})&#10;&#9;&#9;.onSuccess(response -&gt; {&#10;&#9;&#9;&#9;logger.debug(response.getResponseBody());&#10;&#9;&#9;})&#10;&#9;&#9;.execute();" description="HttpRequest" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkdateformat" value="private static String DATE_UTC_FORMAT = &quot;yyyy-MM-dd'T'HH:mm:ss.SSS'Z'&quot;;" description="Static Variable" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_DECLARATION" value="true" />
+    </context>
+  </template>
+  <template name="vdkquerylegacy" value="QueryService queryService = ServiceLocator.locate(QueryService.class);&#10;queryService.query(&quot;select id from user__sys&quot;).streamResults().forEach(&#10;&#9;&#9;queryResult -&gt; {&#10;&#9;&#9;&#9;String name = queryResult.getValue(&quot;name__v&quot;, ValueType.STRING);&#10;&#9;&#9;}&#10;);" description="Query Legacy" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkjob" value="JobService jobService = ServiceLocator.locate(JobService.class);&#10;JobParameters jobParameters = jobService.newJobParameters(&quot;example__c&quot;);&#10;jobService.runJob(jobParameters);" description="JobService" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkdocfield" value="DocumentMetadataService documentMetadataService = ServiceLocator.locate(DocumentMetadataService.class);&#10;DocumentField nameField = documentMetadataService.getField(&quot;name__v&quot;);" description="Metadata" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkdoctype" value="DocumentMetadataService documentMetadataService = ServiceLocator.locate(DocumentMetadataService.class);&#10;DocumentTypeRequest documentTypeRequest = documentMetadataService.newDocumentTypeRequestBuilder()&#10;&#9;&#9;.withType(&quot;demo__c&quot;).build();&#10;DocumentType demoType = documentMetadataService.getDocumentType(documentTypeRequest);" description="Metadata" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkdocfields" value="DocumentMetadataService documentMetadataService = ServiceLocator.locate(DocumentMetadataService.class);&#10;DocumentTypeRequest documentTypeRequest = documentMetadataService.newDocumentTypeRequestBuilder()&#10;&#9;&#9;.withType(&quot;demo__c&quot;).build();&#10;DocumentType demoType = documentMetadataService.getDocumentType(documentTypeRequest);&#10;&#10;Set&lt;String&gt; fieldList = VaultCollections.newSet();&#10;fieldList.add(&quot;name__v&quot;);&#10;fieldList.add(&quot;title__v&quot;);&#10;&#10;DocumentFieldCollectionRequest collectionRequest = documentMetadataService&#10;&#9;&#9;.newDocumentFieldCollectionRequestBuilder()&#10;&#9;&#9;.withDocumentType(demoType)&#10;&#9;&#9;.withFieldNames(fieldList)&#10;&#9;&#9;.build();" description="Metadata" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkquerytokens" value="List&lt;String&gt; versionList = VaultCollections.newList();&#10;versionList.add(&quot;1_1_0&quot;);&#10;versionList.add(&quot;2_1_0&quot;);&#10;&#10;QueryService queryService = ServiceLocator.locate(QueryService.class);&#10;Query query = queryService&#10;&#9;&#9;.newQueryBuilder()&#10;&#9;&#9;.withSelect(asList(&quot;title__v&quot;))&#10;&#9;&#9;.withFrom(&quot;documents&quot;)&#10;&#9;&#9;.withWhere(&quot;version_id CONTAINS (${Custom.version_id})&quot;)&#10;&#9;&#9;.appendWhere(QueryLogicalOperator.AND,&#10;&#9;&#9;&#9;&#9;&quot;version_creation_date__v &gt; ${Custom.my_date}&quot;)&#10;&#9;&#9;.build();&#10;&#10;TokenService tokenService = ServiceLocator.locate(TokenService.class);&#10;TokenRequest tokenRequest = tokenService.newTokenRequestBuilder()&#10;&#9;&#9;.withValue(&quot;Custom.version_id&quot;, versionList)&#10;&#9;&#9;.withValue(&quot;Custom.my_date&quot;, LocalDate.now().minusDays(7))&#10;&#9;&#9;.build();&#10;&#10;QueryExecutionRequest queryRequest = queryService&#10;&#9;&#9;.newQueryExecutionRequestBuilder()&#10;&#9;&#9;.withQuery(query)&#10;&#9;&#9;.withTokenRequest(tokenRequest)&#10;&#9;&#9;.build();&#10;&#10;queryService.query(queryRequest)&#10;&#9;&#9;.onSuccess(queryResponse -&gt; {&#10;&#9;&#9;&#9;queryResponse.streamResults().forEach(queryExecutionResult -&gt; {&#10;&#9;&#9;&#9;&#9;&#9;&#9;String title = queryExecutionResult.getValue(&quot;title__v&quot;, ValueType.STRING);&#10;&#9;&#9;&#9;&#9;&#9;}&#10;&#9;&#9;&#9;);&#10;&#9;&#9;})&#10;&#9;&#9;.onError(queryOperationError -&gt; {&#10;&#9;&#9;&#9;LogService logger = ServiceLocator.locate(LogService.class);&#10;&#9;&#9;&#9;logger.debug(&quot;error!&quot;);&#10;&#9;&#9;})&#10;&#9;&#9;.execute();" description="Query Builder - Tokens" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+  <template name="vdkdoctypetriggerloop" value="for (DocumentVersionChange documentVersionChange : context.getDocumentVersionChanges()) {&#10;&#9;DocumentVersion documentVersion = documentVersionChange.getNew();&#10;}" description="Doctype Trigger Loop" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_EXPRESSION" value="true" />
+    </context>
+  </template>
+</templateSet>

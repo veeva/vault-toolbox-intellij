@@ -1,0 +1,31 @@
+#set( $name =  ${Name} + "Action")
+#set( $javaName =  "")
+#foreach( $str in $name.split("-") )
+    #set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
+    #set( $javaName = $javaName + $str )
+#end
+
+/*
+ * --------------------------------------------------------------------
+ * DocumentAction:			$javaName
+ * Author:					${USER}
+ * Date:					${YEAR}-${MONTH}-${DAY}
+ *---------------------------------------------------------------------
+ * Description:	${Description}
+ *---------------------------------------------------------------------
+ */
+
+import com.veeva.vault.sdk.api.action.*;
+
+@DocumentActionInfo(label="SDK: ${Label}",
+		usages = Usage.UNSPECIFIED)
+public class $javaName implements DocumentAction {
+
+	public boolean isExecutable(DocumentActionContext context) {
+		return true;
+	}
+
+	public void execute(DocumentActionContext context) {
+
+	}
+}

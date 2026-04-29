@@ -1,0 +1,7 @@
+<templateSet group="Vapil">
+  <template name="vapilauth" value="VaultClientId vaultClientId = new VaultClientId(&quot;verteobiotech&quot;,&quot;vault&quot;,&quot;quality&quot;,true,&quot;myintegration&quot;);&#10;// Instantiate the VAPIL VaultClient using user name and password authentication&#10;VaultClient vaultClient = VaultClientBuilder&#10;&#9;&#9;.newClientBuilder(VaultClient.AuthenticationType.BASIC)&#10;&#9;&#9;.withVaultDNS(&quot;verteobiotech.veevavault.com&quot;)&#10;&#9;&#9;.withVaultUsername(&quot;username@verteobiotech.com&quot;)&#10;&#9;&#9;.withVaultPassword(&quot;password&quot;)&#10;&#9;&#9;.withVaultClientId(vaultClientId)&#10;&#9;&#9;.build();" description="" toReformat="false" toShortenFQNames="true">
+    <context>
+      <option name="JAVA_STATEMENT" value="true" />
+    </context>
+  </template>
+</templateSet>
