@@ -20,6 +20,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * A dialog for searching and selecting Vault components, such as Objects or Fields.
+ * Provides a filtered list view with a search field for quick navigation.
+ */
 public class FindComponentDialog extends DialogWrapper {
     private final ToolboxProject toolboxProject;
     private final String type;
@@ -31,6 +35,14 @@ public class FindComponentDialog extends DialogWrapper {
     private final List<ComponentItem> allItems = new ArrayList<>();
     private String selectedValue;
 
+    /**
+     * Initializes the component search dialog.
+     *
+     * @param toolboxProject The toolbox project context.
+     * @param type           The type of component to find (e.g., "Object" or "Field").
+     * @param parentObject   The parent object context, required if searching for fields.
+     * @param initialValue   The value to pre-select in the list.
+     */
     public FindComponentDialog(ToolboxProject toolboxProject, String type, @Nullable String parentObject, @Nullable String initialValue) {
         super(toolboxProject.getProject());
         this.toolboxProject = toolboxProject;
@@ -42,6 +54,9 @@ public class FindComponentDialog extends DialogWrapper {
         loadData();
     }
 
+    /**
+     * Fetches component metadata from Vault based on the configured search type.
+     */
     private void loadData() {
         if (!toolboxProject.prepareRequest()) return;
 
@@ -77,6 +92,9 @@ public class FindComponentDialog extends DialogWrapper {
         filterData();
     }
 
+    /**
+     * Filters the displayed list based on the text entered in the search field.
+     */
     private void filterData() {
         String filter = searchTextField.getText().toLowerCase();
         listModel.clear();
@@ -108,7 +126,6 @@ public class FindComponentDialog extends DialogWrapper {
 
         int row = 0;
 
-        // Search Field
         gbc.gridx = 0; gbc.gridy = row;
         gbc.weighty = 0.0;
         panel.add(new JLabel("Search:"), gbc);
@@ -127,7 +144,6 @@ public class FindComponentDialog extends DialogWrapper {
         panel.add(searchTextField, gbc);
         row++;
 
-        // List
         gbc.gridy = row;
         panel.add(new JLabel("Select " + type + ":"), gbc);
         row++;
@@ -154,10 +170,16 @@ public class FindComponentDialog extends DialogWrapper {
         super.doOKAction();
     }
 
+    /**
+     * @return The technical value of the selected component.
+     */
     public String getSelectedValue() {
         return selectedValue;
     }
 
+    /**
+     * Data class for components displayed in the search list.
+     */
     private static class ComponentItem {
         private final String value;
         private final String label;

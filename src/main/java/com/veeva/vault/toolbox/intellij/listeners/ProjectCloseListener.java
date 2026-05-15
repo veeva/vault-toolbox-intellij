@@ -8,20 +8,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Listener to detect project closing.
+ * Releases Toolbox resources associated with a project when it is closed.
  */
 final class ProjectCloseListener implements ProjectManagerListener {
+
 	private static final Logger logger = LoggerFactory.getLogger(ProjectCloseListener.class);
 
+	/**
+	 * Closes the {@link ToolboxProject} instance bound to the given project, if Toolbox is enabled for it.
+	 *
+	 * @param project the project that has just been closed.
+	 */
 	@Override
 	public void projectClosed(@NotNull Project project) {
 		logger.debug("ProjectCloseListener.projectClosed");
 		ToolboxProject toolboxProject = ToolboxProject.getInstance(project);
 		if (toolboxProject != null && toolboxProject.isToolboxEnabled()) {
-			logger.debug("ProjectCloseListener.projectClosed calling close instance");
-			//only time this should happen is when the project is closed
 			ToolboxProject.closeInstance(project);
 		}
-
 	}
 }

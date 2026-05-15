@@ -6,26 +6,22 @@ import com.intellij.codeInsight.completion.CompletionResultSet;
 import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Suggests Vault component types that may follow a top-level command (such as
+ * {@code Permissionset}, {@code Workflow}, or {@code Object}).
+ */
 class ComponentTypeCompletionProvider extends CompletionProvider<CompletionParameters> {
+    private static final List<String> COMPONENT_TYPES = List.of("Permissionset", "Workflow", "Object");
+
     @Override
     protected void addCompletions(
             @NotNull CompletionParameters completionParameters,
             @NotNull ProcessingContext processingContext,
             @NotNull CompletionResultSet resultSet) {
-        getComponentTypeItems().stream()
-                .forEach(
-                        (componentType) -> {
-                            resultSet.addElement(LookupElementBuilderFactory.create(componentType));
-                        }
-                );
-    }
-
-
-    private List<String> getComponentTypeItems() {
-        //TODO Populate with cached/stored call to VAPIL.
-        return Arrays.asList("Permissionset", "Workflow", "Object");
+        for (String componentType : COMPONENT_TYPES) {
+            resultSet.addElement(LookupElementBuilderFactory.create(componentType));
+        }
     }
 }

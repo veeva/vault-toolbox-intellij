@@ -4,8 +4,11 @@ import com.intellij.openapi.fileTypes.LanguageFileType;
 import icons.ToolboxIcons;
 import org.jetbrains.annotations.NotNull;
 
-import javax.swing.*;
+import javax.swing.Icon;
 
+/**
+ * File type registration for the {@code .mdl} extension.
+ */
 public final class MdlFileType extends LanguageFileType {
 
     public static final MdlFileType INSTANCE = new MdlFileType();
@@ -36,5 +39,4 @@ public final class MdlFileType extends LanguageFileType {
     public Icon getIcon() {
         return ToolboxIcons.Mdl;
     }
-
 }

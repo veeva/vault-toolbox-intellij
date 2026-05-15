@@ -29,4 +29,3 @@ public class $javaName implements RecordMergeEventHandler {
 	public void onMergeComplete(RecordMergeEventCompletionContext context) {
 	}
 }
-}

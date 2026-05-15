@@ -6,6 +6,9 @@ import com.intellij.codeInsight.completion.CompletionResultSet;
 import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Suggests the {@code TO} keyword that follows a {@code RENAME} command.
+ */
 class ToCompletionProvider extends CompletionProvider<CompletionParameters> {
     @Override
     protected void addCompletions(

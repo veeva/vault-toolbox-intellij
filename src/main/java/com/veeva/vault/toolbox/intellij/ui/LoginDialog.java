@@ -6,25 +6,35 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 
+/**
+ * A modal dialog that wraps the {@link LoginPanel} to facilitate Vault authentication.
+ */
 public class LoginDialog extends DialogWrapper {
 
     private final ToolboxProject toolboxProject;
     private final LoginPanel loginControl;
 
+    /**
+     * Initializes the login dialog with the specified project context.
+     *
+     * @param toolboxProject The toolbox project context.
+     */
     public LoginDialog(ToolboxProject toolboxProject) {
-        super(true);
+        super(toolboxProject.getProject(), true);
         this.toolboxProject = toolboxProject;
         this.loginControl = new LoginPanel(toolboxProject, false);
         this.setModal(true);
         this.setUndecorated(true);
-        this.setSize(400, 400);
+        this.setSize(400, 300);
         this.setResizable(false);
         init();
     }
 
+    /**
+     * Overrides the default OK action to perform asynchronous login through the {@link LoginPanel}.
+     * Provides visual feedback by updating the button text during the connection attempt.
+     */
     @Override
     protected void doOKAction() {
         JButton okButton = this.getButton(this.getOKAction());
@@ -55,24 +65,17 @@ public class LoginDialog extends DialogWrapper {
         );
     }
 
-    @FunctionalInterface
-    public interface FieldListener extends DocumentListener {
-        void update(DocumentEvent e);
-
-        @Override
-        default void insertUpdate(DocumentEvent e) { update(e); }
-        @Override
-        default void removeUpdate(DocumentEvent e) { update(e); }
-        @Override
-        default void changedUpdate(DocumentEvent e) { update(e); }
-    }
-
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
         return loginControl;
     }
 
+    /**
+     * Configures the default actions for the dialog, renaming the OK action to "Login".
+     *
+     * @return The array of actions available in the dialog.
+     */
     @NotNull
     @Override
     protected Action[] createActions() {
@@ -81,6 +84,11 @@ public class LoginDialog extends DialogWrapper {
         return new Action[] { getOKAction(), getCancelAction() };
     }
 
+    /**
+     * Returns an empty set of actions for the left side of the dialog footer.
+     *
+     * @return An empty array of Actions.
+     */
     @NotNull
     protected Action[] createLeftSideActions() {
         return new Action[] {  };

@@ -11,7 +11,6 @@ import com.intellij.ui.JBColor;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.components.JBTabbedPane;
-import com.intellij.ui.components.JBTextField;
 import com.intellij.util.ui.JBUI;
 import com.veeva.vault.vapil.api.model.common.SdkProfilingSession;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +37,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
 
+/**
+ * Dialog for analyzing SDK Profiler logs. Provides visualization of various metrics
+ * such as CPU time, memory usage, and execution counts across multiple profiling sessions.
+ */
 public class SdkProfilerAnalysisDialog extends DialogWrapper {
 
 	private final Map<SdkProfilingSession, File> sessionFiles;
@@ -79,6 +82,12 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 			new MetricDef("Action Trigger Elapsed Time", "action_trigger_elapsed_time", "Time (ms)")
 	);
 
+	/**
+	 * Initializes the analysis dialog with a set of profiling session files.
+	 *
+	 * @param project      The current IntelliJ project.
+	 * @param sessionFiles Mapping of profiling sessions to their respective CSV log files.
+	 */
 	public SdkProfilerAnalysisDialog(@Nullable Project project, Map<SdkProfilingSession, File> sessionFiles) {
 		super(project, true);
 		this.sessionFiles = sessionFiles;
@@ -91,6 +100,9 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		init();
 	}
 
+	/**
+	 * Reads and parses the CSV data from the provided session files.
+	 */
 	private void loadCsvData() {
 		for (Map.Entry<SdkProfilingSession, File> entry : sessionFiles.entrySet()) {
 			List<Map<String, String>> rows = new ArrayList<>();
@@ -125,6 +137,12 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		}
 	}
 
+	/**
+	 * Attempts to parse a timestamp string into a LocalDateTime object.
+	 *
+	 * @param tsStr The timestamp string from the CSV.
+	 * @return The parsed LocalDateTime, or null if parsing fails.
+	 */
 	private LocalDateTime parseTimestamp(String tsStr) {
 		if (tsStr == null || tsStr.isEmpty()) return null;
 		try {
@@ -138,6 +156,9 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		}
 	}
 
+	/**
+	 * Determines the overall start and end date boundaries across all parsed data.
+	 */
 	private void calculateDateBounds() {
 		LocalDateTime min = LocalDateTime.MAX;
 		LocalDateTime max = LocalDateTime.MIN;
@@ -157,7 +178,6 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 			this.minDateTime = min.withMinute(minMinute).withSecond(0).withNano(0);
 		}
 		if (max != LocalDateTime.MIN) {
-			// Round UP to the next 30-minute window
 			int minute = max.getMinute();
 			if (minute < 30) {
 				this.maxDateTime = max.withMinute(30).withSecond(0).withNano(0);
@@ -172,7 +192,6 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		JPanel mainPanel = new JPanel(new BorderLayout(JBUI.scale(10), JBUI.scale(10)));
 		mainPanel.setPreferredSize(new Dimension(950, 700));
 
-		// Initialize the filter components
 		JPanel filterPanel = createFilterPanel();
 		mainPanel.add(filterPanel, BorderLayout.NORTH);
 
@@ -182,6 +201,11 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		return mainPanel;
 	}
 
+	/**
+	 * Creates the UI panel containing data filters (time, user, execution IDs).
+	 *
+	 * @return The filter panel component.
+	 */
 	private JPanel createFilterPanel() {
 		JPanel filterPanel = new JPanel(new GridBagLayout());
 		filterPanel.setBorder(JBUI.Borders.compound(
@@ -193,7 +217,6 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		gbc.anchor = GridBagConstraints.WEST;
 		gbc.insets = JBUI.insets(5, 5, 5, 10);
 
-		// Row 0: Start and End Time
 		gbc.gridy = 0; gbc.gridx = 0;
 		gbc.weightx = 0.0;
 		filterPanel.add(new JBLabel("Start Time:"), gbc);
@@ -207,12 +230,11 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		filterPanel.add(new JBLabel("End Time:"), gbc);
 
 		gbc.gridx = 3;
-		gbc.gridwidth = 2; // Span across to keep alignment
+		gbc.gridwidth = 2;
 		endDatePicker = new DateTimePickerControl(minDateTime, maxDateTime);
 		if (maxDateTime != null) endDatePicker.setDateTime(maxDateTime);
 		filterPanel.add(endDatePicker, gbc);
 
-		// Row 1: Username and Execution IDs
 		gbc.gridy = 1; gbc.gridx = 0;
 		gbc.gridwidth = 1;
 		gbc.weightx = 0.0;
@@ -255,6 +277,11 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		return filterPanel;
 		}
 
+	/**
+	 * Displays a popup allowing the user to select specific execution IDs for filtering.
+	 *
+	 * @param owner The component to anchor the popup to.
+	 */
 	private void showExecutionIdPopup(Component owner) {
 		CheckBoxList<String> checkBoxList = new CheckBoxList<>();
 		for (String id : allExecutionIds) {
@@ -283,12 +310,20 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		popup.showUnderneathOf(owner);
 	}
 
+	/**
+	 * Updates the label on the execution ID filter button to show the current selection count.
+	 */
 	private void updateExecutionIdButtonLabel() {
 		if (executionIdButton != null) {
 			executionIdButton.setText("Execution Ids (" + selectedExecutionIds.size() + ")");
 		}
 	}
 
+	/**
+	 * Creates a tabbed pane containing bar charts for each defined metric.
+	 *
+	 * @return The tabbed chart panel component.
+	 */
 	private JComponent createTabbedChartPanel() {
 		JBTabbedPane tabbedPane = new JBTabbedPane();
 
@@ -311,6 +346,11 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		return wrapper;
 	}
 
+	/**
+	 * Applies IDE-consistent themes to the generated charts.
+	 *
+	 * @param chart The chart to theme.
+	 */
 	private void themeChart(JFreeChart chart) {
 		chart.setBackgroundPaint(JBColor.background());
 		chart.getLegend().setBackgroundPaint(JBColor.background());
@@ -341,6 +381,9 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		renderer.setDefaultItemLabelFont(new Font("SansSerif", Font.PLAIN, 12));
 	}
 
+	/**
+	 * Populates the username filter dropdown with unique usernames found in the logs.
+	 */
 	private void populateUsernames() {
 		usernameDropdown.addItem("All Users");
 		Set<String> uniqueUsers = new TreeSet<>();
@@ -358,6 +401,9 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		}
 	}
 
+	/**
+	 * Recalculates chart datasets based on current filter settings and refreshes the display.
+	 */
 	private void updateChartData() {
 		for (MetricDef metric : metrics) {
 			metric.dataset.clear();
@@ -419,8 +465,6 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 
 			if (sessionHasAnyMatch) {
 				for (int i = 0; i < metrics.size(); i++) {
-					// Use seriesName for both Row Key (series) and Column Key (category) 
-					// to get multiple distinct bars in the bar chart for the same metric tab.
 					metrics.get(i).dataset.addValue(metricSums[i], seriesName, seriesName);
 				}
 			}
@@ -439,6 +483,12 @@ public class SdkProfilerAnalysisDialog extends DialogWrapper {
 		}
 	}
 
+	/**
+	 * Parses a string value into a long, handling potential decimal points.
+	 *
+	 * @param value The string value to parse.
+	 * @return The parsed long value, or 0 if parsing fails.
+	 */
 	private long parseLong(String value) {
 		if (value == null || value.isEmpty()) return 0;
 		try {

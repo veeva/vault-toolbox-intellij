@@ -16,120 +16,167 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
+/**
+ * Streaming reader for CSV files whose rows map onto a {@link VaultModel}.
+ * The header row is parsed eagerly so column names are available immediately;
+ * data rows are pulled lazily and may be consumed in full via {@link #getAllRows()}
+ * or in batches via {@link #getRows(Integer)}.
+ *
+ * @param <T> row type used for Jackson deserialization
+ */
 public class CsvMetadataReader<T> {
 	private static final Logger logger = LoggerFactory.getLogger(CsvMetadataReader.class);
+	private static final Pattern TIMESTAMP_PREFIX = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}[T ]");
+	private static final String VAULT_ID_COLUMN = "vault_id";
+	private static final String TIMESTAMP_COLUMN = "timestamp";
+	private static final String REFERENCE_ID_COLUMN = "reference_id";
+	private static final String API_ERROR_COLUMN = "api_response_error_message";
 
-	Set<String> fieldNames = null;
-	Map<String, String> headerRow;
-	CsvSchema readerSchema = null;
-	MappingIterator<?> rowIterator = null;
-	File inputFile = null;
-	Class<T> rowClass;
+	private final Set<String> fieldNames = new LinkedHashSet<>();
+	private final MappingIterator<?> rowIterator;
 
-	public CsvMetadataReader(File inputFile, Class<T> rowClass) throws Exception {
-		this.inputFile = inputFile;
+	/**
+	 * Opens {@code inputFile} for streaming reads and prepares the schema from its header row.
+	 *
+	 * @param inputFile CSV file to read
+	 * @param rowClass row type to deserialize each record into
+	 * @throws IOException if the file cannot be opened or its header cannot be parsed
+	 */
+	public CsvMetadataReader(File inputFile, Class<T> rowClass) throws IOException {
+		Map<String, String> headerRow = readHeaderRow(inputFile);
+		headerRow.put(VAULT_ID_COLUMN, "");
+		fieldNames.addAll(headerRow.keySet());
 
 		CsvMapper mapper = new CsvMapper();
 		mapper.enable(CsvParser.Feature.IGNORE_TRAILING_UNMAPPABLE);
-
-		CsvMapper sourceMapper = new CsvMapper();
-		CsvSchema schema = CsvSchema.emptySchema().withHeader();
-		MappingIterator<Map<String, String>> headerIterator = sourceMapper.readerFor(Map.class)
-				.with(schema)
-				.readValues(inputFile);
-
-		headerRow = headerIterator.next();
-
-		headerRow.put("vault_id", "");
-
-		this.rowClass = rowClass;
 		rowIterator = mapper.readerFor(rowClass)
-				.with(getSchema())
+				.with(buildSchema(fieldNames))
 				.readValues(inputFile);
 	}
 
+	/**
+	 * Reads every remaining row from the file.
+	 *
+	 * @return all remaining rows, or {@code null} if reading fails
+	 */
 	public List<VaultModel> getAllRows() {
 		return getRows(null);
 	}
 
-    public List<VaultModel> getRows(Integer batchLimit) {
-        try {
-            List<VaultModel> result = new ArrayList<>();
-            boolean previousRowInvalid = false;
-            while (rowIterator.hasNext()
-                    && ((batchLimit == null)
-                    || (batchLimit == 0)
-                    || (result.size() < batchLimit))) {
+	/**
+	 * Reads up to {@code batchLimit} rows from the file. Pass {@code null} or {@code 0} to read
+	 * every remaining row.
+	 *
+	 * <p>Rows whose timestamp is missing or malformed are skipped: these originate from log lines
+	 * whose stack traces spilled across multiple physical lines (DEV-691878). When such a row is
+	 * skipped, the {@code reference_id} of the previous valid row is cleared so that the orphaned
+	 * trace is not attributed to an unrelated request.
+	 *
+	 * @param batchLimit maximum number of rows to return, or {@code null}/{@code 0} for unlimited
+	 * @return rows read in this batch, or {@code null} if reading fails
+	 */
+	public List<VaultModel> getRows(Integer batchLimit) {
+		try {
+			List<VaultModel> result = new ArrayList<>();
+			boolean previousRowInvalid = false;
+			while (rowIterator.hasNext() && !batchFull(result.size(), batchLimit)) {
+				VaultModel row = (VaultModel) rowIterator.next();
 
-                VaultModel row = (VaultModel)rowIterator.next();
+				if (!isValidRow(row)) {
+					if (!previousRowInvalid && !result.isEmpty()) {
+						result.get(result.size() - 1).set(REFERENCE_ID_COLUMN, "");
+					}
+					previousRowInvalid = true;
+					continue;
+				}
 
-                // Temp fix for DEV-691878. Api Error Messages printing on multiple lines
-                if (!checkValidRow(row)) {
-                    // FIXED: We must ensure 'result' is not empty before trying to grab the last item!
-                    // If it is empty, it means the stack trace spilled over from the previous batch,
-                    // so we can safely just ignore it and continue.
-                    if (!previousRowInvalid && !result.isEmpty()) {
-                        result.get(result.size() - 1).set("reference_id", "");
-                    }
-                    previousRowInvalid = true;
-                    continue;
-                }
-
-                String errorMessage = (String) row.get("api_response_error_message");
-                if (errorMessage != null && errorMessage.length() > 0) {
-                    errorMessage = errorMessage.replace("\"", "");
-                    row.set("api_response_error_message", errorMessage);
-                }
-                previousRowInvalid = false;
-                result.add(row);
-            }
-
-            return result;
-        }
-        catch (Exception e) {
-            logger.error("Error reading CSV rows: " + e.getMessage(), e);
-            return null;
-        }
-    }
-
-	public CsvSchema getSchema() {
-		if (readerSchema == null) {
-			CsvSchema.Builder builder = new CsvSchema.Builder();
-			builder.setUseHeader(true);
-
-			fieldNames = new LinkedHashSet<>();
-			for (String fieldname : headerRow.keySet()) {
-				builder.addColumn(fieldname);
-				fieldNames.add(fieldname);
+				String errorMessage = (String) row.get(API_ERROR_COLUMN);
+				if (errorMessage != null && !errorMessage.isEmpty()) {
+					row.set(API_ERROR_COLUMN, errorMessage.replace("\"", ""));
+				}
+				previousRowInvalid = false;
+				result.add(row);
 			}
-			readerSchema = builder.build();
+			return result;
+		} catch (Exception e) {
+			logger.error("Error reading CSV rows: {}", e.getMessage(), e);
+			return null;
 		}
-
-		return readerSchema;
 	}
 
+	/**
+	 * @return {@code true} if at least one more row is available to read
+	 */
 	public boolean hasNext() {
-		if (rowIterator != null)
-			return rowIterator.hasNext();
-		else
-			return false;
+		return rowIterator != null && rowIterator.hasNext();
 	}
 
+	/**
+	 * @return the column names discovered from the header (including the appended {@code vault_id})
+	 */
 	public Set<String> getFieldNames() {
 		return fieldNames;
 	}
 
-    private boolean checkValidRow(VaultModel row) {
-        String timestamp = (String) row.get("timestamp");
-        if (timestamp == null || timestamp.isEmpty()) {
-            return false;
-        }
+	/**
+	 * Reads the header row from a CSV file to determine column names.
+	 *
+	 * @param inputFile the CSV file to read
+	 * @return a map representing the header row
+	 * @throws IOException if the file cannot be read
+	 */
+	private static Map<String, String> readHeaderRow(File inputFile) throws IOException {
+		CsvMapper headerMapper = new CsvMapper();
+		CsvSchema headerSchema = CsvSchema.emptySchema().withHeader();
+		try (MappingIterator<Map<String, String>> headerIterator = headerMapper.readerFor(Map.class)
+				.with(headerSchema)
+				.readValues(inputFile)) {
+			return headerIterator.next();
+		}
+	}
 
-        String pattern = "^\\d{4}-\\d{2}-\\d{2}[T ]";
-        Pattern regex = Pattern.compile(pattern);
-        return regex.matcher(timestamp).find();
-    }
+	/**
+	 * Builds a {@link CsvSchema} based on the specified set of columns.
+	 *
+	 * @param columns the set of column names
+	 * @return the constructed CsvSchema
+	 */
+	private static CsvSchema buildSchema(Set<String> columns) {
+		CsvSchema.Builder builder = new CsvSchema.Builder().setUseHeader(true);
+		for (String column : columns) {
+			builder.addColumn(column);
+		}
+		return builder.build();
+	}
+
+	/**
+	 * Determines if a batch has reached its specified limit.
+	 *
+	 * @param currentSize the current number of items in the batch
+	 * @param batchLimit  the maximum allowed size, or {@code null}/{@code 0} for unlimited
+	 * @return {@code true} if the batch is full; {@code false} otherwise
+	 */
+	private static boolean batchFull(int currentSize, Integer batchLimit) {
+		return batchLimit != null && batchLimit > 0 && currentSize >= batchLimit;
+	}
+
+	/**
+	 * Validates if a row has a valid timestamp. Rows with missing or malformed timestamps
+	 * are typically incomplete log lines and should be skipped.
+	 *
+	 * @param row the row to validate
+	 * @return {@code true} if the row is valid; {@code false} otherwise
+	 */
+	private static boolean isValidRow(VaultModel row) {
+		String timestamp = (String) row.get(TIMESTAMP_COLUMN);
+		return timestamp != null && !timestamp.isEmpty() && TIMESTAMP_PREFIX.matcher(timestamp).find();
+	}
 }

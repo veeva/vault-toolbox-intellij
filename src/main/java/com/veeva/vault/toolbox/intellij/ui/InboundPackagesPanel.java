@@ -5,25 +5,56 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowId;
+import com.intellij.openapi.wm.ToolWindowManager;
+import com.intellij.ide.projectView.ProjectView;
+import com.veeva.vault.toolbox.core.utils.Date;
+import com.veeva.vault.toolbox.intellij.listeners.ConnectionListener;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
+import com.veeva.vault.toolbox.intellij.tasks.DownloadDeploymentLogsTask;
+import com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog;
 import com.veeva.vault.vapil.api.model.response.QueryResponse;
 import com.veeva.vault.vapil.api.request.QueryRequest;
+import org.apache.commons.io.FileUtils;
 import org.jdesktop.swingx.JXTable;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
-import java.util.List;
+import javax.swing.table.TableCellRenderer;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.File;
+import java.io.IOException;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * Panel for managing inbound Vault packages retrieved from a Vault instance.
+ * Supports viewing deployment logs, downloading remote logs, and status tracking.
+ */
 public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.QueryResult> {
 
+    /**
+     * Initializes the inbound packages panel with the specified project context.
+     *
+     * @param toolboxProject The toolbox project context.
+     */
     public InboundPackagesPanel(ToolboxProject toolboxProject) {
         super(toolboxProject);
         initUI();
 
-        toolboxProject.addConnectionListener(new com.veeva.vault.toolbox.intellij.listeners.ConnectionListener() {
+        toolboxProject.addConnectionListener(new ConnectionListener() {
             @Override
             public void connected() {
-                ApplicationManager.getApplication().invokeLater(() -> loadData());
+                ApplicationManager.getApplication().invokeLater(InboundPackagesPanel.this::loadData);
             }
 
             @Override
@@ -36,18 +67,11 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
             }
         });
 
-        deploymentTable.setSortOrder(6, SortOrder.DESCENDING);
+        deploymentTable.setSortOrder(7, SortOrder.DESCENDING);
 
-        deploymentTable.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                // trigger action update
-            }
-        });
-
-        java.awt.event.MouseAdapter localMouseAdapter = new java.awt.event.MouseAdapter() {
-
+        MouseAdapter localMouseAdapter = new MouseAdapter() {
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
+            public void mouseClicked(MouseEvent e) {
                 int row = deploymentTable.rowAtPoint(e.getPoint());
                 int col = deploymentTable.columnAtPoint(e.getPoint());
 
@@ -60,24 +84,21 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                         String packageName = item.getItem().getString("name__v");
 
                         if (packageId != null) {
-                            java.io.File logDir = new java.io.File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
+                            File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
 
                             if (logDir.exists()) {
                                 boolean isActionIcon = "View".equals(colName) || "Locate".equals(colName);
 
                                 if ((isActionIcon && e.getClickCount() == 1) || (!isActionIcon && e.getClickCount() == 2)) {
-
                                     if ("Locate".equals(colName)) {
-                                        com.intellij.openapi.vfs.VirtualFile vFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(logDir);
+                                        VirtualFile vFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(logDir);
                                         if (vFile != null) {
-                                            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(() -> {
-                                                com.intellij.openapi.wm.ToolWindow projectViewToolWindow = com.intellij.openapi.wm.ToolWindowManager.getInstance(toolboxProject.getProject())
-                                                        .getToolWindow(com.intellij.openapi.wm.ToolWindowId.PROJECT_VIEW);
+                                            ApplicationManager.getApplication().invokeLater(() -> {
+                                                ToolWindow projectViewToolWindow = ToolWindowManager.getInstance(toolboxProject.getProject())
+                                                        .getToolWindow(ToolWindowId.PROJECT_VIEW);
 
                                                 if (projectViewToolWindow != null) {
-                                                    Runnable selectFile = () -> {
-                                                        com.intellij.ide.projectView.ProjectView.getInstance(toolboxProject.getProject()).select(null, vFile, false);
-                                                    };
+                                                    Runnable selectFile = () -> ProjectView.getInstance(toolboxProject.getProject()).select(null, vFile, false);
 
                                                     if (!projectViewToolWindow.isVisible()) {
                                                         projectViewToolWindow.show(selectFile);
@@ -85,10 +106,10 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                                                         selectFile.run();
                                                     }
                                                 }
-                                            }, com.intellij.openapi.application.ModalityState.any());
+                                            }, ModalityState.any());
                                         }
                                     } else {
-                                        new com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog(toolboxProject.getProject(), logDir).show();
+                                        new FileViewerDialog(toolboxProject.getProject(), logDir).show();
                                     }
                                 }
                             }
@@ -98,7 +119,7 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
             }
 
             @Override
-            public void mouseMoved(java.awt.event.MouseEvent e) {
+            public void mouseMoved(MouseEvent e) {
                 int row = deploymentTable.rowAtPoint(e.getPoint());
                 int col = deploymentTable.columnAtPoint(e.getPoint());
                 if (row >= 0 && col >= 0) {
@@ -106,12 +127,12 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                     if ("View".equals(colName) || "Locate".equals(colName)) {
                         Object value = deploymentTable.getValueAt(row, col);
                         if (value != null) {
-                            deploymentTable.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+                            deploymentTable.setCursor(new Cursor(Cursor.HAND_CURSOR));
                             return;
                         }
                     }
                 }
-                deploymentTable.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+                deploymentTable.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
             }
         };
 
@@ -119,19 +140,29 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
         deploymentTable.addMouseMotionListener(localMouseAdapter);
     }
 
+    /**
+     * Gets the column names for the inbound packages table.
+     *
+     * @return An array of column names.
+     */
     @Override
     protected String[] getColumnNames() {
         return new String[]{"Select", "View", "Locate", "Name", "Summary", "Description", "Deployment Status", "Modified Date"};
     }
 
+    /**
+     * Configures column widths and cell renderers for the inbound packages table.
+     *
+     * @param table The table to configure.
+     */
     @Override
     protected void setupColumnWidths(JXTable table) {
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 
-        javax.swing.table.TableCellRenderer defaultIconRenderer = table.getDefaultRenderer(Icon.class);
+        TableCellRenderer defaultIconRenderer = table.getDefaultRenderer(Icon.class);
 
-        javax.swing.table.TableCellRenderer clickableIconRenderer = (tbl, value, isSelected, hasFocus, row, column) -> {
-            java.awt.Component c = defaultIconRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
+        TableCellRenderer clickableIconRenderer = (tbl, value, isSelected, hasFocus, row, column) -> {
+            Component c = defaultIconRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
             if (c instanceof JComponent) {
                 String colName = table.getColumnName(column);
                 if (value != null) {
@@ -152,48 +183,47 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
 
         table.getColumnModel().getColumn(0).setMinWidth(50);
         table.getColumnModel().getColumn(0).setMaxWidth(50);
-
         table.getColumnModel().getColumn(1).setMinWidth(50);
         table.getColumnModel().getColumn(1).setMaxWidth(50);
-
         table.getColumnModel().getColumn(2).setMinWidth(50);
         table.getColumnModel().getColumn(2).setMaxWidth(50);
     }
 
+    /**
+     * Creates the action group for the toolbar.
+     *
+     * @return The created DefaultActionGroup.
+     */
     @Override
     protected DefaultActionGroup createActionGroup() {
         DefaultActionGroup actionGroup = new DefaultActionGroup();
 
-        actionGroup.add(new AnAction("Download", "Download selected package", AllIcons.Actions.Download) {
+        actionGroup.add(new AnAction("Download", "Download selected package logs", AllIcons.Actions.Download) {
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
                 List<DeploymentItem<QueryResponse.QueryResult>> selected = getSelectedItems();
                 if (selected.isEmpty()) return;
 
-                final java.util.concurrent.atomic.AtomicInteger downloadsRemaining = new java.util.concurrent.atomic.AtomicInteger(selected.size());
+                final AtomicInteger downloadsRemaining = new AtomicInteger(selected.size());
 
-
-                Runnable onAllDownloadsComplete = () -> {
-                    ApplicationManager.getApplication().invokeLater(() -> {
-                        if (toolboxProject != null) {
-                            toolboxProject.refresh();
-                        }
-                        loadData();
-
-                        com.intellij.openapi.ui.Messages.showInfoMessage(
-                                toolboxProject.getProject(),
-                                "Successfully downloaded deployment logs for " + selected.size() + " package(s).",
-                                "Download Complete"
-                        );
-                    });
-                };
+                Runnable onAllDownloadsComplete = () -> ApplicationManager.getApplication().invokeLater(() -> {
+                    if (toolboxProject != null) {
+                        toolboxProject.refresh();
+                    }
+                    loadData();
+                    Messages.showInfoMessage(
+                            toolboxProject.getProject(),
+                            "Successfully downloaded deployment logs for " + selected.size() + " package(s).",
+                            "Download Complete"
+                    );
+                });
 
                 for (DeploymentItem<QueryResponse.QueryResult> item : selected) {
                     QueryResponse.QueryResult qr = item.getItem();
                     String packageId = qr.getString("id");
                     String packageName = qr.getString("name__v");
                     if (packageId != null) {
-                        java.io.File logDir = new java.io.File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
+                        File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
                         if (logDir.exists() && logDir.isDirectory() && logDir.list() != null && logDir.list().length > 0) {
                             if (downloadsRemaining.decrementAndGet() == 0) {
                                 onAllDownloadsComplete.run();
@@ -202,8 +232,8 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                         }
 
                         ApplicationManager.getApplication().invokeLater(() -> {
-                            com.veeva.vault.toolbox.intellij.tasks.DownloadDeploymentLogsTask task =
-                                    new com.veeva.vault.toolbox.intellij.tasks.DownloadDeploymentLogsTask(toolboxProject.getProject(), packageId, packageName) {
+                            DownloadDeploymentLogsTask task =
+                                    new DownloadDeploymentLogsTask(toolboxProject.getProject(), packageId, packageName) {
                                         @Override
                                         public void onFinished() {
                                             super.onFinished();
@@ -224,8 +254,7 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
 
             @Override
             public void update(@NotNull AnActionEvent e) {
-                List<DeploymentItem<QueryResponse.QueryResult>> selected = getSelectedItems();
-                e.getPresentation().setEnabled(!selected.isEmpty());
+                e.getPresentation().setEnabled(!getSelectedItems().isEmpty());
             }
         });
 
@@ -242,20 +271,16 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                             String packageId = item.getItem().getString("id");
                             String packageName = item.getItem().getString("name__v");
                             if (packageId != null) {
-                                java.io.File logDir = new java.io.File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
+                                File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
                                 if (logDir.exists()) {
                                     try {
-                                        org.apache.commons.io.FileUtils.deleteDirectory(logDir);
-                                    } catch (java.io.IOException ex) {
-                                        // Ignore
-                                    }
+                                        FileUtils.deleteDirectory(logDir);
+                                    } catch (IOException ignored) {}
                                 }
                             }
                         }
 
-                        com.intellij.openapi.vfs.VirtualFile vLogsDir = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-                                .refreshAndFindFileByIoFile(toolboxProject.getLogsDirectory());
-
+                        VirtualFile vLogsDir = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(toolboxProject.getLogsDirectory());
                         if (vLogsDir != null) {
                             vLogsDir.refresh(false, true);
                         }
@@ -288,11 +313,11 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
         return actionGroup;
     }
 
+    /**
+     * Loads the data to be displayed in the panel.
+     */
     @Override
     public void loadData() {
-        allItems.clear();
-        tableModel.setRowCount(0);
-
         if (!toolboxProject.isConnected()) {
             if (!toolboxProject.connectWithDialog()) {
                 filterAndUpdateTable();
@@ -306,26 +331,44 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                 QueryResponse response = toolboxProject.getVaultClient().newRequest(QueryRequest.class).query(query);
 
                 if (toolboxProject.handleSessionExpiration(response)) {
-                    SwingUtilities.invokeLater(() -> filterAndUpdateTable());
+                    SwingUtilities.invokeLater(() -> {
+                        allItems.clear();
+                        tableModel.setRowCount(0);
+                        filterAndUpdateTable();
+                    });
                     return;
                 }
 
-                SwingUtilities.invokeLater(() -> {
-                    if (response != null && !response.isFailure() && response.getData() != null) {
-                        for (QueryResponse.QueryResult row : response.getData()) {
-                            String packageId = row.getString("id");
-                            String packageName = row.getString("name__v");
-                            java.io.File logDir = new java.io.File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
-                            boolean isLocal = logDir.exists() && logDir.isDirectory() && logDir.list() != null && logDir.list().length > 0;
-                            allItems.add(new DeploymentItem<>(row, true, isLocal));
-                        }
-                    } else if (response != null) {
-                        String errorMsg = response.getResponseMessage();
-                        if ((errorMsg == null || errorMsg.isEmpty()) && response.getErrors() != null && !response.getErrors().isEmpty()) {
-                            errorMsg = response.getErrors().get(0).getMessage();
-                        }
+                List<DeploymentItem<QueryResponse.QueryResult>> newItems = new ArrayList<>();
+                boolean isError = false;
+                String errorMsg = "";
 
-                        JOptionPane.showMessageDialog(this, "Error fetching inbound packages: " + errorMsg, "Query Error", JOptionPane.ERROR_MESSAGE);
+                if (response != null && !response.isFailure() && response.getData() != null) {
+                    for (QueryResponse.QueryResult row : response.getData()) {
+                        String packageId = row.getString("id");
+                        String packageName = row.getString("name__v");
+                        File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
+                        boolean isLocal = logDir.exists() && logDir.isDirectory() && logDir.list() != null && logDir.list().length > 0;
+                        newItems.add(new DeploymentItem<>(row, true, isLocal));
+                    }
+                } else if (response != null) {
+                    isError = true;
+                    errorMsg = response.getResponseMessage();
+                    if ((errorMsg == null || errorMsg.isEmpty()) && response.getErrors() != null && !response.getErrors().isEmpty()) {
+                        errorMsg = response.getErrors().get(0).getMessage();
+                    }
+                }
+
+                final boolean finalIsError = isError;
+                final String finalErrorMsg = errorMsg;
+
+                SwingUtilities.invokeLater(() -> {
+                    allItems.clear();
+                    tableModel.setRowCount(0);
+                    allItems.addAll(newItems);
+                    
+                    if (finalIsError) {
+                        JOptionPane.showMessageDialog(this, "Error fetching inbound packages: " + finalErrorMsg, "Query Error", JOptionPane.ERROR_MESSAGE);
                     }
                     filterAndUpdateTable();
 
@@ -335,17 +378,27 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                 });
             } catch (Exception e) {
                 if (toolboxProject.handleSessionExpiration(e)) {
-                    SwingUtilities.invokeLater(() -> filterAndUpdateTable());
+                    SwingUtilities.invokeLater(() -> {
+                        allItems.clear();
+                        tableModel.setRowCount(0);
+                        filterAndUpdateTable();
+                    });
                     return;
                 }
-
                 SwingUtilities.invokeLater(() -> {
+                    allItems.clear();
+                    tableModel.setRowCount(0);
                     filterAndUpdateTable();
                 });
             }
         });
     }
 
+    /**
+     * Populates a row in the table model for the given inbound package item.
+     *
+     * @param item The item to populate the row with.
+     */
     @Override
     protected void populateRow(DeploymentItem<QueryResponse.QueryResult> item) {
         QueryResponse.QueryResult qr = item.getItem();
@@ -363,10 +416,16 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                 qr.getString("summary__v"),
                 qr.getString("description__v"),
                 formatStatus(deploymentStatus),
-                qr.getString("modified_date__v")
+                Date.formatVaultDateTime(qr.getString("modified_date__v"))
         });
     }
 
+    /**
+     * Converts raw Vault status codes into user-friendly display labels.
+     *
+     * @param status The raw status code from the Vault API.
+     * @return A human-readable status string.
+     */
     private String formatStatus(String status) {
         if (status == null) return "";
         switch (status) {

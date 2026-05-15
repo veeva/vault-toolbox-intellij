@@ -14,44 +14,43 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Handles folding MDL commands. Folding is allowed on those tokens that are present in {@link MdlTokenSets#FOLDING_TOKEN_TYPES}
+ * Builds code folding regions for MDL files. Any element whose type is in
+ * {@link MdlTokenSets#FOLDING_TOKEN_TYPES} contributes a foldable region.
  */
 public class MdlFoldingBuilder extends FoldingBuilderEx implements DumbAware {
-    @Override
-    public FoldingDescriptor @NotNull [] buildFoldRegions(@NotNull PsiElement root, @NotNull Document document, boolean b) {
-        List<FoldingDescriptor> descriptors = new ArrayList<>();
+    private static final int MAX_PLACEHOLDER_LENGTH = 40;
 
+    @Override
+    public FoldingDescriptor @NotNull [] buildFoldRegions(@NotNull PsiElement root, @NotNull Document document, boolean quick) {
+        List<FoldingDescriptor> descriptors = new ArrayList<>();
         root.accept(new PsiRecursiveElementWalkingVisitor() {
             @Override
             public void visitElement(@NotNull PsiElement element) {
-                if(MdlTokenSets.FOLDING_TOKEN_TYPES.contains(element.getNode().getElementType())) {
+                if (MdlTokenSets.FOLDING_TOKEN_TYPES.contains(element.getNode().getElementType())) {
                     descriptors.add(new FoldingDescriptor(element, element.getTextRange()));
                 }
                 super.visitElement(element);
             }
         });
-
         return descriptors.toArray(FoldingDescriptor.EMPTY_ARRAY);
     }
 
-    private static final int MAX_LENGTH = 40;
-
     /**
-     * Calculates the text that should be visible when a node is folded. In this case, we show a max of 40 characters.
-     * For nodes with open parenthesis we show values up to, not including the parenthesis
+     * Builds the placeholder text shown when a region is folded. The first line of
+     * the node's text is used, truncated to {@value #MAX_PLACEHOLDER_LENGTH}
+     * characters; any text from the first opening parenthesis onward is dropped so
+     * the placeholder shows just the leading identifier.
      */
     @Override
     public @Nullable String getPlaceholderText(@NotNull ASTNode astNode) {
-        String text = astNode.getText();
-        text = text.split("\\R")[0];
-        int i = text.indexOf('(');
-        if(i != -1) {
-            text = text.substring(0, i);
+        String text = astNode.getText().split("\\R")[0];
+        int parenIndex = text.indexOf('(');
+        if (parenIndex != -1) {
+            text = text.substring(0, parenIndex);
         }
-        if(text.length() > MAX_LENGTH) {
-            text = text.substring(0, MAX_LENGTH) + "...";
+        if (text.length() > MAX_PLACEHOLDER_LENGTH) {
+            text = text.substring(0, MAX_PLACEHOLDER_LENGTH) + "...";
         }
-
         return text;
     }
 

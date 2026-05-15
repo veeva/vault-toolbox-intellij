@@ -1,5 +1,6 @@
 package com.veeva.vault.toolbox.intellij.ui;
 
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBScrollPane;
@@ -15,12 +16,21 @@ import java.awt.*;
 import java.io.File;
 import java.io.FileReader;
 
+/**
+ * A dialog for viewing the contents of a CSV file in a read-only table format.
+ * Loads a limited number of rows as specified in the application settings to ensure performance.
+ */
 public class CsvDataViewerDialog extends DialogWrapper {
     private final File csvFile;
     private final int maxRows;
 
-    public CsvDataViewerDialog(File csvFile) {
-        super(true);
+    /**
+     * Initializes the CSV data viewer dialog.
+     *
+     * @param csvFile The CSV file to display.
+     */
+    public CsvDataViewerDialog(Project project, File csvFile) {
+        super(project, true);
         this.csvFile = csvFile;
         this.maxRows = AppSettings.getInstance().getState().csvMaxRows;
         init();
@@ -70,6 +80,11 @@ public class CsvDataViewerDialog extends DialogWrapper {
         return panel;
     }
 
+    /**
+     * Configures the dialog actions, showing only the OK button for closing.
+     *
+     * @return The array of actions for the dialog.
+     */
     @NotNull
     @Override
     protected Action[] createActions() {

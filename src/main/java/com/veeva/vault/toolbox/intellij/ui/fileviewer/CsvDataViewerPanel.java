@@ -13,7 +13,17 @@ import java.awt.*;
 import java.io.File;
 import java.io.FileReader;
 
+/**
+ * A panel that displays CSV data in a read-only table.
+ * The number of loaded rows is restricted by application settings.
+ */
 public class CsvDataViewerPanel extends JBPanel<CsvDataViewerPanel> {
+
+    /**
+     * Initializes the CSV data viewer panel.
+     *
+     * @param csvFile The CSV file to display.
+     */
     public CsvDataViewerPanel(File csvFile) {
         setLayout(new BorderLayout());
         int maxRows = AppSettings.getInstance().getState().csvMaxRows;

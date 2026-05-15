@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.intellij.icons.AllIcons;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.LocalFileSystem;
 import com.veeva.vault.toolbox.core.models.CsvDataStep;
 import com.veeva.vault.toolbox.core.models.CsvManifest;
 import com.veeva.vault.toolbox.core.utils.Checksum;
@@ -22,6 +22,10 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
+/**
+ * Dialog for editing the data manifest (XML) associated with a CSV component.
+ * Allows configuration of data type, action, target object, and other deployment parameters.
+ */
 public class CsvDataEditorDialog extends DialogWrapper {
     private final ToolboxProject toolboxProject;
     private final File csvFile;
@@ -40,6 +44,12 @@ public class CsvDataEditorDialog extends DialogWrapper {
     private JButton objectSearchButton;
     private JButton idParamSearchButton;
 
+    /**
+     * Initializes the CSV data editor dialog.
+     *
+     * @param toolboxProject The toolbox project context.
+     * @param csvFile        The source CSV file.
+     */
     public CsvDataEditorDialog(ToolboxProject toolboxProject, File csvFile) {
         super(toolboxProject.getProject());
         this.toolboxProject = toolboxProject;
@@ -53,6 +63,10 @@ public class CsvDataEditorDialog extends DialogWrapper {
         setTitle("CSV Data Editor: " + csvFile.getName());
     }
 
+    /**
+     * Validates that the manifest metadata matches the current physical state of the CSV file.
+     * Prompts the user to update if a mismatch is detected.
+     */
     private void validateDataMatch() {
         if (xmlFile.exists() && csvFile.exists()) {
             String calculatedMd5 = Checksum.getMd5(csvFile);
@@ -77,6 +91,9 @@ public class CsvDataEditorDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * Loads the manifest from the XML file or creates a default one if it does not exist.
+     */
     private void loadManifest() {
         if (xmlFile.exists()) {
             try {
@@ -105,11 +122,10 @@ public class CsvDataEditorDialog extends DialogWrapper {
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new java.awt.Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(5, 5, 5, 5);
 
         int row = 0;
 
-        // Label
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Label:"), gbc);
         gbc.gridx = 1;
@@ -117,7 +133,6 @@ public class CsvDataEditorDialog extends DialogWrapper {
         panel.add(labelField, gbc);
         row++;
 
-        // Step Required
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Step Required:"), gbc);
         gbc.gridx = 1;
@@ -125,7 +140,6 @@ public class CsvDataEditorDialog extends DialogWrapper {
         panel.add(stepRequiredCheckbox, gbc);
         row++;
 
-        // Data Step Header separator
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 2;
         panel.add(new JSeparator(JSeparator.HORIZONTAL), gbc);
         row++;
@@ -137,7 +151,6 @@ public class CsvDataEditorDialog extends DialogWrapper {
             csvManifest.setCsvDataStep(dataStep);
         }
 
-        // Data Type
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Data Type:"), gbc);
         gbc.gridx = 1;
@@ -148,12 +161,6 @@ public class CsvDataEditorDialog extends DialogWrapper {
             if ("Groups".equals(selectedType)) {
                 objectField.setText("Groups");
                 idParamField.setText("name__v");
-            } else if ("Object".equals(selectedType)) {
-                // Only clear if it wasn't already something else (to avoid clearing on load)
-                // However, the requirement said "when a user changes the data type, the object field and id param field are cleared"
-                // So we'll clear them here.
-                objectField.setText("");
-                idParamField.setText("");
             } else {
                 objectField.setText("");
                 idParamField.setText("");
@@ -163,7 +170,6 @@ public class CsvDataEditorDialog extends DialogWrapper {
         panel.add(dataTypeField, gbc);
         row++;
 
-        // Action
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Action:"), gbc);
         gbc.gridx = 1;
@@ -172,7 +178,6 @@ public class CsvDataEditorDialog extends DialogWrapper {
         panel.add(actionField, gbc);
         row++;
 
-        // Object
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Object:"), gbc);
         gbc.gridx = 1;
@@ -186,7 +191,6 @@ public class CsvDataEditorDialog extends DialogWrapper {
         panel.add(objectPanel, gbc);
         row++;
 
-        // ID Param
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("ID Param:"), gbc);
         gbc.gridx = 1;
@@ -202,7 +206,6 @@ public class CsvDataEditorDialog extends DialogWrapper {
 
         updateFieldState();
 
-        // Record Migration Mode
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Record Migration Mode:"), gbc);
         gbc.gridx = 1;
@@ -210,13 +213,11 @@ public class CsvDataEditorDialog extends DialogWrapper {
         panel.add(recordMigrationModeCheckbox, gbc);
         row++;
 
-        // Metadata separator
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 2;
         panel.add(new JSeparator(JSeparator.HORIZONTAL), gbc);
         row++;
         gbc.gridwidth = 1;
 
-        // Checksum
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Checksum:"), gbc);
         gbc.gridx = 1;
@@ -225,7 +226,6 @@ public class CsvDataEditorDialog extends DialogWrapper {
         panel.add(checksumField, gbc);
         row++;
 
-        // Record Count
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Record Count:"), gbc);
         gbc.gridx = 1;
@@ -243,6 +243,9 @@ public class CsvDataEditorDialog extends DialogWrapper {
         super.doOKAction();
     }
 
+    /**
+     * Opens the object selection dialog to populate the object field.
+     */
     private void findObject() {
         FindComponentDialog dialog = new FindComponentDialog(toolboxProject, "Object", null, objectField.getText());
         if (dialog.showAndGet()) {
@@ -250,6 +253,9 @@ public class CsvDataEditorDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * Opens the field selection dialog for the current object to populate the ID parameter field.
+     */
     private void findField() {
         String objectName = objectField.getText();
         if (objectName == null || objectName.isEmpty()) {
@@ -262,6 +268,9 @@ public class CsvDataEditorDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * Updates the interactive state and defaults of the object and ID parameter fields based on the selected data type.
+     */
     private void updateFieldState() {
         String selectedType = (String) dataTypeField.getSelectedItem();
         boolean isObject = "Object".equals(selectedType);
@@ -285,6 +294,9 @@ public class CsvDataEditorDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * Recalculates the checksum and record count for the CSV file and updates the manifest.
+     */
     private void calculateMetadata() {
         if (csvFile.exists()) {
             String md5 = Checksum.getMd5(csvFile);
@@ -297,10 +309,12 @@ public class CsvDataEditorDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * Saves the current manifest configuration to the XML file.
+     */
     private void saveManifest() {
         csvManifest.setLabel(labelField.getText());
         csvManifest.setStepRequired(stepRequiredCheckbox.isSelected());
-        // checksum is set in calculateMetadata()
 
         CsvDataStep dataStep = csvManifest.getCsvDataStep();
         dataStep.setObject(objectField.getText());
@@ -308,20 +322,14 @@ public class CsvDataEditorDialog extends DialogWrapper {
         dataStep.setDataType((String) dataTypeField.getSelectedItem());
         dataStep.setAction((String) actionField.getSelectedItem());
         dataStep.setRecordMigrationMode(recordMigrationModeCheckbox.isSelected());
-        // recordCount is set in calculateMetadata()
         
         try {
-
 			XmlMapper xmlMapper = new XmlMapper();
 			xmlMapper.enable(SerializationFeature.INDENT_OUTPUT);
 			String xml = xmlMapper.writeValueAsString(csvManifest);
 			FileUtils.writeStringToFile(new File(xmlFile.getAbsolutePath()), xml,"UTF-8");
-			ApplicationManager.getApplication().invokeLater(() -> {
-
-			});
             
-            // Refresh the file system so IntelliJ sees the new/updated file
-            com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(xmlFile);
+            LocalFileSystem.getInstance().refreshAndFindFileByIoFile(xmlFile);
         } catch (Exception e) {
             Messages.showErrorDialog(toolboxProject.getProject(), "Failed to save manifest: " + e.getMessage(), "Save Error");
             e.printStackTrace();

@@ -1,57 +1,15 @@
 package com.veeva.vault.toolbox.intellij.actions;
 
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class MarkAsVpkAction extends ToolboxAction {
-	private static final Logger logger = LoggerFactory.getLogger(MarkAsVpkAction.class);
+/**
+ * Marks the selected directory as the Vault Toolbox VPK directory.
+ */
+public class MarkAsVpkAction extends MarkAsDirectoryAction {
 
 	@Override
-	public void actionPerformed(AnActionEvent anActionEvent) {
-		super.actionPerformed(anActionEvent);
-		try {
-			VirtualFile virtualFile = anActionEvent.getData(CommonDataKeys.VIRTUAL_FILE);
-			if (virtualFile != null && virtualFile.isDirectory()) {
-				if (toolboxProject!= null && toolboxProject.isToolboxEnabled()) {
-					toolboxProject.setVpkDirectory(virtualFile);
-					toolboxProject.saveAsync();
-				}
-			}
-		}
-		catch (Exception e) {
-			logger.error(e.getMessage(), e);
-		}
-	}
-
-	@Override
-	public void update(@NotNull AnActionEvent anActionEvent) {
-		super.update(anActionEvent);
-		try {
-			if (toolboxProject != null && toolboxProject.isToolboxEnabled()) {
-				VirtualFile virtualFile = anActionEvent.getData(CommonDataKeys.VIRTUAL_FILE);
-				if (virtualFile != null) {
-					if (virtualFile.isDirectory()
-							&& !ToolboxProject.isProjectFile(virtualFile, anActionEvent.getProject())
-							&& !toolboxProject.getConfigDirectory().getPath().equals(virtualFile.getPath())
-							&& !toolboxProject.getLogsDirectory().getPath().equals(virtualFile.getPath())
-							&& !toolboxProject.getMdlDirectory().getPath().equals(virtualFile.getPath())
-							&& !toolboxProject.getVpkDirectory().getPath().equals(virtualFile.getPath())) {
-						isEnabled = true;
-						isVisible = true;
-					}
-				}
-			}
-			anActionEvent.getPresentation().setEnabled(isEnabled);
-			anActionEvent.getPresentation().setVisible(isVisible);
-		}
-		catch (Exception e) {
-			logger.error(e.getMessage(), e);
-		}
+	protected void setDirectory(VirtualFile virtualFile) {
+		toolboxProject.setVpkDirectory(virtualFile);
 	}
 
 }

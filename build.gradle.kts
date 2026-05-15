@@ -65,19 +65,19 @@ dependencies {
         testFramework(TestFrameworkType.Platform)
         bundledPlugin("com.intellij.java")
     }
-    implementation("com.veeva.vault:vapil:25.3.0") {
+    implementation("com.veeva.vault:vapil:26.1.0") {
         exclude(group = "org.slf4j", module = "slf4j-api")
         exclude(group = "org.apache.logging.log4j", module = "log4j-slf4j2-impl")
         exclude(group = "org.apache.logging.log4j", module = "log4j-api")
         exclude(group = "org.apache.logging.log4j", module = "log4j-core")
     }
-    implementation("com.fasterxml.jackson.core:jackson-core:2.19.2")
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-properties:2.19.2")
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.19.2")
-    implementation("org.json:json:20240303")
-    implementation("org.xerial:sqlite-jdbc:3.40.0.0")
-    implementation("com.opencsv:opencsv:5.10")
-    implementation("org.jfree:jfreechart:1.5.3")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.21.3")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-properties:2.21.3")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.21.3")
+    implementation("org.json:json:20251224")
+    implementation("org.xerial:sqlite-jdbc:3.53.1.0")
+    implementation("com.opencsv:opencsv:5.12.0")
+    implementation("org.jfree:jfreechart:1.5.6")
 }
 
 // Configure IntelliJ Platform Gradle Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-extension.html

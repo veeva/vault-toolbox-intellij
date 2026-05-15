@@ -2,26 +2,25 @@ package com.veeva.vault.toolbox.intellij.groups;
 
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+/**
+ * Menu group specifically for Veeva Vault Toolbox actions.
+ * Visible and enabled only if the Toolbox is enabled for the project.
+ */
 public class VeevaMenuGroup extends ToolboxMenuGroup {
-	private static final Logger logger = LoggerFactory.getLogger(VeevaMenuGroup.class);
 
-	@Override
-	public void update(@NotNull AnActionEvent anActionEvent) {
-		super.update(anActionEvent);
-		try {
-			if (toolboxProject != null && toolboxProject.isToolboxEnabled()) {
-				isEnabled = true;
-				isVisible = true;
-			}
-
-			anActionEvent.getPresentation().setEnabled(isEnabled);
-			anActionEvent.getPresentation().setVisible(isVisible);
-		}
-		catch (Exception e) {
-			logger.error(e.getMessage(), e);
-		}
-	}
+    /**
+     * Updates the internal state for the Veeva menu group.
+     * Sets isEnabled and isVisible to true if the toolbox is enabled.
+     *
+     * @param anActionEvent The action event
+     */
+    @Override
+    protected void updateState(@NotNull AnActionEvent anActionEvent) {
+        super.updateState(anActionEvent);
+        if (toolboxProject != null && toolboxProject.isToolboxEnabled()) {
+            isEnabled = true;
+            isVisible = true;
+        }
+    }
 }

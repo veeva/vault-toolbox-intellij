@@ -6,16 +6,21 @@ import com.intellij.codeInsight.completion.CompletionResultSet;
 import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
+
+/**
+ * Suggests the top-level MDL commands that start a statement.
+ */
 class CommandCompletionProvider extends CompletionProvider<CompletionParameters> {
+    private static final List<String> COMMANDS = List.of("CREATE", "RECREATE", "ALTER", "RENAME", "DROP");
+
     @Override
     protected void addCompletions(
             @NotNull CompletionParameters completionParameters,
             @NotNull ProcessingContext processingContext,
             @NotNull CompletionResultSet resultSet) {
-        resultSet.addElement(LookupElementBuilderFactory.create("CREATE").withCaseSensitivity(false));
-        resultSet.addElement(LookupElementBuilderFactory.create("RECREATE").withCaseSensitivity(false));
-        resultSet.addElement(LookupElementBuilderFactory.create("ALTER").withCaseSensitivity(false));
-        resultSet.addElement(LookupElementBuilderFactory.create("RENAME").withCaseSensitivity(false));
-        resultSet.addElement(LookupElementBuilderFactory.create("DROP").withCaseSensitivity(false));
+        for (String command : COMMANDS) {
+            resultSet.addElement(LookupElementBuilderFactory.create(command).withCaseSensitivity(false));
+        }
     }
 }

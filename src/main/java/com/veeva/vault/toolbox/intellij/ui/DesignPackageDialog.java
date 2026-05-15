@@ -6,6 +6,7 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.ui.ValidationInfo;
+import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.components.JBTabbedPane;
@@ -13,6 +14,7 @@ import com.veeva.vault.toolbox.core.config.VaultPackage;
 import com.veeva.vault.toolbox.core.models.VpkBuildManifest;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
 import com.veeva.vault.toolbox.intellij.services.Sdk;
+import com.veeva.vault.toolbox.intellij.settings.AppSettings;
 import org.jdesktop.swingx.JXComboBox;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -23,46 +25,54 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
+import java.util.List;
 
+/**
+ * Dialog for designing and configuring a Vault VPK package.
+ * Allows managing package details, Java SDK inclusion, MDL components, and Web SDK distributions.
+ */
 public class DesignPackageDialog extends DialogWrapper {
     private static final Logger logger = LoggerFactory.getLogger(DesignPackageDialog.class);
-
     private static final String DEFAULT_JAVA_PATH = "/src/main/java/com/veeva/vault/custom";
 
-    ToolboxProject toolboxProject;
-    File manifestFile;
-    VpkBuildManifest buildManifest = null;
+    private final ToolboxProject toolboxProject;
+    private File manifestFile;
+    private VpkBuildManifest buildManifest = null;
 
-    JPanel mainPanel = new JPanel(new BorderLayout());
-    JPanel detailsTab = new JPanel(new GridLayout(12, 2));
-    JPanel javaSdkTab = new JPanel(new GridLayout(12, 2));
-    JPanel componentsTab = new JPanel(new BorderLayout());
-    JPanel webSdkTab = new JPanel(new BorderLayout());
+    private final JPanel mainPanel = new JPanel(new BorderLayout());
+    private final JPanel detailsTab = new JPanel(new GridLayout(12, 2));
+    private final JPanel javaSdkTab = new JPanel(new GridLayout(12, 2));
+    private final JPanel componentsTab = new JPanel(new BorderLayout());
+    private final JPanel webSdkTab = new JPanel(new BorderLayout());
 
-    JTextField nameField = new JTextField(15);
-    JTextField authorField = new JTextField(15); // --- ADDED: Author Field ---
-    JTextField summaryField = new JTextField(15);
-    JTextField descriptionField = new JTextField(15);
+    private final JTextField nameField = new JTextField(15);
+    private final JTextField authorField = new JTextField(15);
+    private final JTextField summaryField = new JTextField(15);
+    private final JTextField descriptionField = new JTextField(15);
 
-    JCheckBox includeSdk = new JCheckBox();
-    TextFieldWithBrowseButton sdkPath = new TextFieldWithBrowseButton();
-    JXComboBox deploymentOptions = new JXComboBox();
-    JBTabbedPane optionsTabbedPane = new JBTabbedPane();
+    private final JCheckBox includeSdk = new JCheckBox();
+    private final TextFieldWithBrowseButton sdkPath = new TextFieldWithBrowseButton();
+    private final JXComboBox deploymentOptions = new JXComboBox();
+    private final JBTabbedPane optionsTabbedPane = new JBTabbedPane();
 
+    /**
+     * Creates a new dialog for designing a new package.
+     *
+     * @param toolboxProject The toolbox project context.
+     */
     public DesignPackageDialog(ToolboxProject toolboxProject) {
-        super(false);
-        this.toolboxProject = toolboxProject;
-        this.setModal(true);
-        this.setUndecorated(true);
-        this.setResizable(false);
-        init();
+        this(toolboxProject, null);
     }
 
+    /**
+     * Creates a new dialog for editing an existing package manifest.
+     *
+     * @param toolboxProject The toolbox project context.
+     * @param manifestFile   The existing manifest file.
+     */
     public DesignPackageDialog(ToolboxProject toolboxProject, File manifestFile) {
-        super(false);
+        super(toolboxProject.getProject(), false);
         this.toolboxProject = toolboxProject;
         this.manifestFile = manifestFile;
         this.setModal(true);
@@ -71,11 +81,12 @@ public class DesignPackageDialog extends DialogWrapper {
         init();
     }
 
+    /**
+     * @return The selected Java SDK deployment option.
+     */
     public VaultPackage.JavaSdk.DeploymentOption getJavaSdkDeploymentOption() {
-        VaultPackage.JavaSdk.DeploymentOption item = (VaultPackage.JavaSdk.DeploymentOption)deploymentOptions.getSelectedItem();
-        return item;
+        return (VaultPackage.JavaSdk.DeploymentOption) deploymentOptions.getSelectedItem();
     }
-
 
     @Override
     protected @Nullable ValidationInfo doValidate() {
@@ -103,8 +114,7 @@ public class DesignPackageDialog extends DialogWrapper {
 
         if (manifestFile != null && manifestFile.exists()) {
             buildManifest = VpkBuildManifest.load(this.manifestFile);
-        }
-        else {
+        } else {
             buildManifest = new VpkBuildManifest();
             buildManifest.setName(toolboxProject.getProject().getName());
             buildManifest.setSummary("Package Summary");
@@ -115,21 +125,16 @@ public class DesignPackageDialog extends DialogWrapper {
         nameField.setText(buildManifest.getName() != null ? buildManifest.getName().toUpperCase() : "");
         detailsTab.add(nameField);
 
-        // --- ADDED: Author UI Logic ---
         detailsTab.add(new JLabel("Author:"));
         String currentAuthor = "";
 
-        // 1. Try to load existing author from the JSON manifest first
         if (buildManifest.getAuthor() != null && !buildManifest.getAuthor().trim().isEmpty()) {
             currentAuthor = buildManifest.getAuthor();
         } else {
-            // 2. Try the active project session (Most reliable if they are currently connected)
             if (toolboxProject.getVaultUser() != null && toolboxProject.getVaultUser().getUserName() != null) {
                 currentAuthor = toolboxProject.getVaultUser().getUserName();
-            }
-            // 3. Fallback to global AppSettings if session isn't active yet
-            else {
-                String appUser = com.veeva.vault.toolbox.intellij.settings.AppSettings.getInstance().getState().username;
+            } else {
+                String appUser = AppSettings.getInstance().getState().username;
                 if (appUser != null && !appUser.trim().isEmpty()) {
                     currentAuthor = appUser;
                 }
@@ -138,7 +143,6 @@ public class DesignPackageDialog extends DialogWrapper {
 
         authorField.setText(currentAuthor);
         detailsTab.add(authorField);
-        // ------------------------------
 
         detailsTab.add(new JLabel("Summary:"));
         summaryField.setText(buildManifest.getSummary());
@@ -170,7 +174,7 @@ public class DesignPackageDialog extends DialogWrapper {
 
         FileChooserDescriptor fileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileOrFolderDescriptor();
         fileChooserDescriptor.setForcedToUseIdeaFileChooser(true);
-        VirtualFile projectFile = VfsUtil.findFileByIoFile(new File (toolboxProject.getProject().getBasePath()), true);
+        VirtualFile projectFile = VfsUtil.findFileByIoFile(new File(toolboxProject.getProject().getBasePath()), true);
         fileChooserDescriptor.setRoots(getSdkFolders(projectFile));
 
         sdkPath.addBrowseFolderListener(toolboxProject.getProject(), fileChooserDescriptor);
@@ -194,17 +198,20 @@ public class DesignPackageDialog extends DialogWrapper {
             }
         });
 
-        includeSdk.addActionListener(e -> toggleConteols());
-        toggleConteols();
+        includeSdk.addActionListener(e -> toggleControls());
+        toggleControls();
 
         return mainPanel;
     }
 
-    private java.util.List<VirtualFile> getSdkFolders(VirtualFile parent) {
-        return new Sdk(toolboxProject).getSdkFolders(parent);
+    private List<VirtualFile> getSdkFolders(VirtualFile parent) {
+        return Sdk.getSdkFolders(toolboxProject, parent);
     }
 
-    private void toggleConteols() {
+    /**
+     * Toggles the availability of SDK-related controls based on whether the "Include Java SDK" checkbox is selected.
+     */
+    private void toggleControls() {
         sdkPath.setEnabled(includeSdk.isSelected());
         deploymentOptions.setEnabled(includeSdk.isSelected());
         sdkPath.setEditable(false);
@@ -220,40 +227,29 @@ public class DesignPackageDialog extends DialogWrapper {
                 buildManifest.getJavaSdk().setDeploymentOption(VaultPackage.JavaSdk.DeploymentOption.REPLACE_ALL);
                 deploymentOptions.setSelectedItem(buildManifest.getJavaSdk().getDeploymentOption());
             }
-        }
-        else {
+        } else {
             buildManifest.setJavaSdk(null);
             sdkPath.setText("");
             deploymentOptions.setSelectedIndex(-1);
         }
     }
 
-    public static class PackageItem {
-        private final String path;
-        private final String name;
-        public PackageItem(String path, String name) {
-            this.path = path;
-            this.name = name;
-        }
-        public String getPath() { return path; }
-        public String getName() { return name; }
-        @Override
-        public String toString() { return name; }
-    }
-
     @NotNull
     @Override
     protected Action[] createActions() {
-        super.createDefaultActions();
         this.setOKButtonText("Save");
         return new Action[] { getOKAction(), getCancelAction() };
     }
 
     @NotNull
+    @Override
     protected Action[] createLeftSideActions() {
         return new Action[] {  };
     }
 
+    /**
+     * Persists the current dialog configuration to the VPK manifest file.
+     */
     private void save() {
         try {
             String name = (nameField.getText() != null) ? nameField.getText().toUpperCase() : null;
@@ -266,7 +262,7 @@ public class DesignPackageDialog extends DialogWrapper {
                 manifestFile = new File(packagesDir, packageName + ".json");
             }
             buildManifest.setName(name);
-            buildManifest.setAuthor(authorField.getText()); // --- ADDED: Save Author to model ---
+            buildManifest.setAuthor(authorField.getText());
             buildManifest.setSummary(summaryField.getText());
             buildManifest.setDescription(descriptionField.getText());
             buildManifest.setPackageType(VaultPackage.PackageType.MIGRATION);
@@ -277,24 +273,17 @@ public class DesignPackageDialog extends DialogWrapper {
                 }
                 buildManifest.getJavaSdk().setPath(sdkPath.getText());
                 buildManifest.getJavaSdk().setDeploymentOption(getJavaSdkDeploymentOption());
-            }
-            else {
+            } else {
                 buildManifest.setJavaSdk(null);
             }
 
             buildManifest.save(manifestFile);
 
-            com.intellij.openapi.vfs.VirtualFile vLogsDir = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-                    .refreshAndFindFileByIoFile(toolboxProject.getVpkDirectory());
+            VirtualFile vLogsDir = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(toolboxProject.getVpkDirectory());
             if (vLogsDir != null) {
                 vLogsDir.refresh(false, true);
             }
-
-            ApplicationManager.getApplication().invokeLater(() -> {
-
-            });
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error(e.getMessage(), e);
         }
     }

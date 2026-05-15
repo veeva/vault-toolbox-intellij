@@ -2,48 +2,72 @@ package com.veeva.vault.toolbox.intellij.ui;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intellij.icons.AllIcons;
+import com.intellij.ide.projectView.ProjectView;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowId;
+import com.intellij.openapi.wm.ToolWindowManager;
+import com.veeva.vault.toolbox.core.utils.Date;
 import com.veeva.vault.toolbox.core.utils.FileIO;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
 import com.veeva.vault.toolbox.intellij.tasks.AnalyzeLocalDebugLogTask;
 import com.veeva.vault.toolbox.intellij.tasks.DownloadDebugLogTask;
+import com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog;
 import com.veeva.vault.vapil.api.model.common.SdkDebugSession;
 import com.veeva.vault.vapil.api.model.response.QueryResponse;
 import com.veeva.vault.vapil.api.model.response.SdkDebugSessionBulkResponse;
 import com.veeva.vault.vapil.api.model.response.VaultResponse;
 import com.veeva.vault.vapil.api.request.LogRequest;
-import icons.ToolboxIcons;
-import org.jdesktop.swingx.JXTable;
+import com.veeva.vault.vapil.api.request.QueryRequest;
+import org.apache.commons.io.FileUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.table.TableCellRenderer;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Panel for managing and analyzing Vault SDK Debug sessions.
+ * Provides capabilities to create, reset, delete, and download debug logs,
+ * as well as tools for local log analysis.
+ */
 public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<SdkDebugSession> {
     private static final Logger logger = LoggerFactory.getLogger(DeveloperDebugSessionPanel.class);
-    private Map<String, String> userNames = new HashMap<>();
+    private final Map<String, String> userNames = new HashMap<>();
 
+    /**
+     * Initializes the SDK Debug session panel.
+     *
+     * @param toolboxProject The toolbox project context.
+     */
     public DeveloperDebugSessionPanel(ToolboxProject toolboxProject) {
         super(toolboxProject);
         initUI();
 
         setupIconRenderer();
 
-        java.awt.event.MouseAdapter localMouseAdapter = new java.awt.event.MouseAdapter() {
+        MouseAdapter localMouseAdapter = new MouseAdapter() {
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
+            public void mouseClicked(MouseEvent e) {
                 int row = sessionTable.rowAtPoint(e.getPoint());
                 int col = sessionTable.columnAtPoint(e.getPoint());
 
@@ -61,16 +85,14 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
 
                             if ((isActionIcon && e.getClickCount() == 1) || (!isActionIcon && e.getClickCount() == 2)) {
                                 if ("Locate".equals(colName)) {
-                                    com.intellij.openapi.vfs.VirtualFile vFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(sessionDir);
+                                    VirtualFile vFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(sessionDir);
                                     if (vFile != null) {
-                                        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(() -> {
-                                            com.intellij.openapi.wm.ToolWindow projectViewToolWindow = com.intellij.openapi.wm.ToolWindowManager.getInstance(toolboxProject.getProject())
-                                                    .getToolWindow(com.intellij.openapi.wm.ToolWindowId.PROJECT_VIEW);
+                                        ApplicationManager.getApplication().invokeLater(() -> {
+                                            ToolWindow projectViewToolWindow = ToolWindowManager.getInstance(toolboxProject.getProject())
+                                                    .getToolWindow(ToolWindowId.PROJECT_VIEW);
 
                                             if (projectViewToolWindow != null) {
-                                                Runnable selectFile = () -> {
-                                                    com.intellij.ide.projectView.ProjectView.getInstance(toolboxProject.getProject()).select(null, vFile, false);
-                                                };
+                                                Runnable selectFile = () -> ProjectView.getInstance(toolboxProject.getProject()).select(null, vFile, false);
 
                                                 if (!projectViewToolWindow.isVisible()) {
                                                     projectViewToolWindow.show(selectFile);
@@ -78,10 +100,10 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
                                                     selectFile.run();
                                                 }
                                             }
-                                        }, com.intellij.openapi.application.ModalityState.any());
+                                        }, ModalityState.any());
                                     }
                                 } else {
-                                    new com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog(toolboxProject.getProject(), sessionDir).show();
+                                    new FileViewerDialog(toolboxProject.getProject(), sessionDir).show();
                                 }
                             }
                         }
@@ -90,7 +112,7 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
             }
 
             @Override
-            public void mouseMoved(java.awt.event.MouseEvent e) {
+            public void mouseMoved(MouseEvent e) {
                 int row = sessionTable.rowAtPoint(e.getPoint());
                 int col = sessionTable.columnAtPoint(e.getPoint());
                 if (row >= 0 && col >= 0) {
@@ -98,26 +120,27 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
                     if ("View".equals(colName) || "Locate".equals(colName)) {
                         Object value = sessionTable.getValueAt(row, col);
                         if (value != null) {
-                            sessionTable.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+                            sessionTable.setCursor(new Cursor(Cursor.HAND_CURSOR));
                             return;
                         }
                     }
                 }
-                sessionTable.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+                sessionTable.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
             }
         };
 
         sessionTable.addMouseListener(localMouseAdapter);
         sessionTable.addMouseMotionListener(localMouseAdapter);
-
-        loadData();
     }
 
+    /**
+     * Configures specialized renderers for action icons in the session table.
+     */
     private void setupIconRenderer() {
-        javax.swing.table.TableCellRenderer defaultIconRenderer = sessionTable.getDefaultRenderer(Icon.class);
+        TableCellRenderer defaultIconRenderer = sessionTable.getDefaultRenderer(Icon.class);
 
-        javax.swing.table.TableCellRenderer clickableIconRenderer = (tbl, value, isSelected, hasFocus, row, column) -> {
-            java.awt.Component c = defaultIconRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
+        TableCellRenderer clickableIconRenderer = (tbl, value, isSelected, hasFocus, row, column) -> {
+            Component c = defaultIconRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
             if (c instanceof JComponent) {
                 String colName = sessionTable.getColumnName(column);
                 if (value != null) {
@@ -149,21 +172,20 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
         String userName = userId != null ? userNames.getOrDefault(userId, "") : "All Users";
 
         tableModel.addRow(new Object[]{
-                false,              // 0: Checkbox
-                getVaultIcon(item), // 1: Vault Icon
-                item.isLocal() ? AllIcons.Actions.Show : null,   // 2: View Icon
-                item.isLocal() ? AllIcons.General.Locate : null, // 3: Locate Icon
-                session.getId(),    // 4: ID
-                session.getName(),  // 5: Name
-                userId,             // 6: User ID
-                userName,           // 7: User Name
-                formatLogLevel(session.getLogLevel()), // 8: Log Level
-                formatStatus(session.getStatus()),     // 9: Status
-                session.getCreatedDate(),              // 10: Created Date
-                session.getExpirationDate()            // 11: Expiration Date
+                false,
+                getVaultIcon(item),
+                item.isLocal() ? AllIcons.Actions.Show : null,
+                item.isLocal() ? AllIcons.General.Locate : null,
+                session.getId(),
+                session.getName(),
+                userId,
+                userName,
+                formatLogLevel(session.getLogLevel()),
+                formatStatus(item.isInVault() ? session.getStatus() : null),
+                Date.formatVaultDateTime(session.getCreatedDate()),
+                Date.formatVaultDateTime(session.getExpirationDate())
         });
     }
-
 
     @Override
     protected DefaultActionGroup createActionGroup() {
@@ -266,8 +288,6 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
 
         new Thread(() -> {
             try {
-                allItems.clear();
-                userNames.clear();
                 Map<String, DeveloperLogItem<SdkDebugSession>> itemMap = new HashMap<>();
                 List<String> userIds = new ArrayList<>();
 
@@ -294,6 +314,7 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
 
                 SdkDebugSessionBulkResponse response = toolboxProject.getVaultClient()
                         .newRequest(LogRequest.class)
+                        .setIncludeInactive(true)
                         .retrieveAllDebugLogs();
 
                 if (toolboxProject.handleSessionExpiration(response)) {
@@ -302,22 +323,16 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
 
                 if (response != null && !response.isFailure()) {
                     for (SdkDebugSession vSession : response.getData()) {
-                        if (itemMap.containsKey(vSession.getId())) {
-                            DeveloperLogItem<SdkDebugSession> item = itemMap.get(vSession.getId());
-                            item.setInVault(true);
-                            item.getItem().setStatus(vSession.getStatus());
-                            item.getItem().setExpirationDate(vSession.getExpirationDate());
-                        } else {
-                            itemMap.put(vSession.getId(), new DeveloperLogItem<>(vSession, true, false));
-                        }
+                        boolean wasLocal = itemMap.containsKey(vSession.getId());
+                        itemMap.put(vSession.getId(), new DeveloperLogItem<>(vSession, true, wasLocal));
                         if (vSession.getUserId() != null) userIds.add(vSession.getUserId().toString());
                     }
                 }
 
-                resolveUserNames(userIds);
+                Map<String, String> newUserNames = resolveUserNames(userIds);
 
-                allItems.addAll(itemMap.values());
-                allItems.sort((a, b) -> {
+                List<DeveloperLogItem<SdkDebugSession>> newItems = new ArrayList<>(itemMap.values());
+                newItems.sort((a, b) -> {
                     String dateA = a.getItem().getCreatedDate();
                     String dateB = b.getItem().getCreatedDate();
                     if (dateA == null && dateB == null) return 0;
@@ -327,6 +342,10 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
                 });
 
                 SwingUtilities.invokeLater(() -> {
+                    allItems.clear();
+                    allItems.addAll(newItems);
+                    userNames.clear();
+                    userNames.putAll(newUserNames);
                     filterAndUpdateTable();
                     if (sessionTable != null) {
                         sessionTable.packAll();
@@ -346,50 +365,71 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
         }).start();
     }
 
-    private void resolveUserNames(List<String> userIds) {
+    /**
+     * Resolves Vault user IDs to usernames by querying the Vault user table.
+     *
+     * @param userIds List of user IDs to resolve.
+     */
+    private Map<String, String> resolveUserNames(List<String> userIds) {
+        Map<String, String> resolved = new HashMap<>();
         if (!userIds.isEmpty()) {
             String ids = userIds.stream().distinct().map(id -> "'" + id + "'").collect(Collectors.joining(","));
             String query = "SELECT id, username__sys FROM user__sys WHERE id CONTAINS (" + ids + ")";
 
             QueryResponse queryResponse = toolboxProject.getVaultClient()
-                    .newRequest(com.veeva.vault.vapil.api.request.QueryRequest.class)
+                    .newRequest(QueryRequest.class)
                     .query(query);
 
             if (toolboxProject.handleSessionExpiration(queryResponse)) {
-                return;
+                return resolved;
             }
 
             if (queryResponse != null && !queryResponse.isFailure()) {
                 for (QueryResponse.QueryResult result : queryResponse.getData()) {
-                    userNames.put(result.getString("id"), result.getString("username__sys"));
+                    resolved.put(result.getString("id"), result.getString("username__sys"));
                 }
             }
         }
+        return resolved;
     }
 
-
+    /**
+     * Maps Vault log level codes to user-friendly labels.
+     *
+     * @param level The log level code from Vault.
+     * @return A human-readable log level string.
+     */
     private String formatLogLevel(String level) {
         if (level == null) return "";
-        switch (level) {
-            case "all__sys": return "ALL";
-            case "exceptions__sys": return "EXCEPTIONS";
-            case "error__sys": return "ERROR";
-            case "warning__sys": return "WARNING";
-            case "info__sys": return "INFO";
-            case "debug__sys": return "DEBUG";
-            default: return level;
-        }
+        return switch (level) {
+            case "all__sys" -> "ALL";
+            case "exceptions__sys" -> "EXCEPTIONS";
+            case "error__sys" -> "ERROR";
+            case "warning__sys" -> "WARNING";
+            case "info__sys" -> "INFO";
+            case "debug__sys" -> "DEBUG";
+            default -> level;
+        };
     }
 
+    /**
+     * Maps Vault session status codes to user-friendly labels.
+     *
+     * @param status The status code from Vault.
+     * @return A human-readable status string.
+     */
     private String formatStatus(String status) {
         if (status == null) return "";
-        switch (status) {
-            case "active__sys": return "Active";
-            case "inactive__sys": return "Inactive";
-            default: return status;
-        }
+        return switch (status) {
+            case "active__sys" -> "Active";
+            case "inactive__sys" -> "Inactive";
+            default -> status;
+        };
     }
 
+    /**
+     * Opens the dialog to create a new SDK Debug session.
+     */
     private void createSession() {
         CreateDebugSessionDialog dialog = new CreateDebugSessionDialog(toolboxProject);
         if (dialog.showAndGet()) {
@@ -397,6 +437,9 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
         }
     }
 
+    /**
+     * Deletes the selected debug sessions from the remote Vault instance.
+     */
     private void deleteSelectedVaultSessions() {
         List<DeveloperLogItem<SdkDebugSession>> selectedSessions = getSelectedItems();
         if (selectedSessions.isEmpty()) return;
@@ -405,6 +448,10 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
         if (confirm != JOptionPane.YES_OPTION) return;
 
         new Thread(() -> {
+            if (toolboxProject.isProductionVault()) {
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "This tool cannot be run in a Production domain.", "Error", JOptionPane.ERROR_MESSAGE));
+                return;
+            }
             for (DeveloperLogItem<SdkDebugSession> item : selectedSessions) {
                 if (item.isInVault()) {
                     try {
@@ -433,6 +480,9 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
         }).start();
     }
 
+    /**
+     * Resets the selected debug sessions in the remote Vault instance, clearing existing log data.
+     */
     private void resetSelectedSessions() {
         List<DeveloperLogItem<SdkDebugSession>> selectedSessions = getSelectedItems();
         if (selectedSessions.isEmpty()) return;
@@ -501,14 +551,19 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
         });
         task.queue();
     }
+
+    /**
+     * Analyzes the local log files for the selected debug sessions.
+     * Unzips files if necessary and triggers an analysis task.
+     */
     private void analyzeSelectedLogs() {
         List<DeveloperLogItem<SdkDebugSession>> selectedSessions = getSelectedItems();
         if (selectedSessions.isEmpty()) return;
 
         File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/debug/" + toolboxProject.getVaultId());
 
-        java.util.List<File> allTxtFilesToAnalyze = new java.util.ArrayList<>();
-        java.util.List<String> selectedIds = new java.util.ArrayList<>();
+        List<File> allTxtFilesToAnalyze = new ArrayList<>();
+        List<String> selectedIds = new ArrayList<>();
 
         for (DeveloperLogItem<SdkDebugSession> item : selectedSessions) {
             if (item.isLocal()) {
@@ -541,7 +596,7 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
             if (selectedIds.size() == 1) {
                 logIdSuffix = selectedIds.get(0);
             } else {
-                logIdSuffix = "bulk_" + selectedIds.size() + "_sessions_" + com.veeva.vault.toolbox.core.utils.Date.getDateTimeAsFileName(java.time.ZonedDateTime.now());
+                logIdSuffix = "bulk_" + selectedIds.size() + "_sessions_" + Date.getDateTimeAsFileName(ZonedDateTime.now());
             }
 
             AnalyzeLocalDebugLogTask task = new AnalyzeLocalDebugLogTask(
@@ -552,10 +607,13 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
             task.queue();
 
         } else {
-            com.intellij.openapi.ui.Messages.showWarningDialog(toolboxProject.getProject(), "No log files found to analyze for selected sessions.", "Analysis Error");
+            Messages.showWarningDialog(toolboxProject.getProject(), "No log files found to analyze for selected sessions.", "Analysis Error");
         }
     }
 
+    /**
+     * Deletes the local log directories for the selected debug sessions.
+     */
     private void deleteSelectedLocalSessions() {
         List<DeveloperLogItem<SdkDebugSession>> selectedSessions = getSelectedItems();
         if (selectedSessions.isEmpty()) return;
@@ -570,20 +628,21 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
                 File sessionDir = new File(vaultLogsDir, baseFilename);
                 if (sessionDir.exists()) {
                     try {
-                        org.apache.commons.io.FileUtils.deleteDirectory(sessionDir);
-                    } catch (java.io.IOException e) {
+                        FileUtils.deleteDirectory(sessionDir);
+                    } catch (IOException e) {
                         logger.error("Failed to delete debug log directory: " + sessionDir.getName(), e);
                     }
                 }
             }
         }
 
-        com.intellij.openapi.vfs.VirtualFile vLogsDir = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-                .refreshAndFindFileByIoFile(toolboxProject.getLogsDirectory());
-
-        if (vLogsDir != null) {
-            vLogsDir.refresh(false, true);
-        }
+        ApplicationManager.getApplication().invokeLater(() -> {
+            VirtualFile vVaultLogsDir = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(vaultLogsDir);
+            if (vVaultLogsDir != null) {
+                vVaultLogsDir.refresh(true, true);
+            }
+        });
+        toolboxProject.refresh();
 
         JOptionPane.showMessageDialog(this, "Selected local files deleted.", "Info", JOptionPane.INFORMATION_MESSAGE);
         loadData();

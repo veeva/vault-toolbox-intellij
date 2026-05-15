@@ -6,6 +6,10 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Factory that supplies the IDE with an {@link MdlSyntaxHighlighter} instance for
+ * each MDL file.
+ */
 public class MdlSyntaxHighlighterFactory extends SyntaxHighlighterFactory {
     @NotNull
     @Override

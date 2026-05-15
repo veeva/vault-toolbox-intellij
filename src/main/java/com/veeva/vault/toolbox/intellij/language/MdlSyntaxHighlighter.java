@@ -12,6 +12,10 @@ import org.jetbrains.annotations.NotNull;
 
 import static com.intellij.openapi.editor.colors.TextAttributesKey.createTextAttributesKey;
 
+/**
+ * Syntax highlighter for MDL files. Maps lexer token types to {@link TextAttributesKey}
+ * arrays that the IDE uses to apply colors and font styles.
+ */
 public class MdlSyntaxHighlighter extends SyntaxHighlighterBase {
     public static final TextAttributesKey COMMAND =
             createTextAttributesKey("MDL_COMMAND", DefaultLanguageHighlighterColors.CONSTANT);
@@ -34,17 +38,16 @@ public class MdlSyntaxHighlighter extends SyntaxHighlighterBase {
     public static final TextAttributesKey BAD_CHARACTER =
             createTextAttributesKey("MDL_BAD_CHARACTER", HighlighterColors.BAD_CHARACTER);
 
-
-    private static final TextAttributesKey[] BAD_CHAR_KEYS = new TextAttributesKey[]{BAD_CHARACTER};
-    private static final TextAttributesKey[] COMMAND_KEYS = new TextAttributesKey[]{COMMAND};
-    private static final TextAttributesKey[] COMPONENT_TYPE_KEYS = new TextAttributesKey[]{COMPONENT_TYPE};
-    private static final TextAttributesKey[] RECORD_NAME_KEYS = new TextAttributesKey[]{RECORD_NAME};
-    private static final TextAttributesKey[] XML_IDENTIFIER_KEYS = new TextAttributesKey[]{XML_IDENTIFIER};
-    private static final TextAttributesKey[] CHARACTER_KEYS = new TextAttributesKey[]{CHARACTER};
-    private static final TextAttributesKey[] ATTRIBUTE_KEYS = new TextAttributesKey[]{ATTRIBUTE};
-    private static final TextAttributesKey[] XML_TEXT_KEYS = new TextAttributesKey[]{XML_TEXT};
-    private static final TextAttributesKey[] VALUE_KEYS = new TextAttributesKey[]{VALUE};
-    private static final TextAttributesKey[] COMMENT_KEYS = new TextAttributesKey[]{COMMENT};
+    private static final TextAttributesKey[] BAD_CHAR_KEYS = {BAD_CHARACTER};
+    private static final TextAttributesKey[] COMMAND_KEYS = {COMMAND};
+    private static final TextAttributesKey[] COMPONENT_TYPE_KEYS = {COMPONENT_TYPE};
+    private static final TextAttributesKey[] RECORD_NAME_KEYS = {RECORD_NAME};
+    private static final TextAttributesKey[] XML_IDENTIFIER_KEYS = {XML_IDENTIFIER};
+    private static final TextAttributesKey[] CHARACTER_KEYS = {CHARACTER};
+    private static final TextAttributesKey[] ATTRIBUTE_KEYS = {ATTRIBUTE};
+    private static final TextAttributesKey[] XML_TEXT_KEYS = {XML_TEXT};
+    private static final TextAttributesKey[] VALUE_KEYS = {VALUE};
+    private static final TextAttributesKey[] COMMENT_KEYS = {COMMENT};
     private static final TextAttributesKey[] EMPTY_KEYS = new TextAttributesKey[0];
 
     @NotNull
@@ -55,18 +58,12 @@ public class MdlSyntaxHighlighter extends SyntaxHighlighterBase {
 
     @Override
     public TextAttributesKey @NotNull [] getTokenHighlights(IElementType tokenType) {
-        if (tokenType.equals(MdlTypes.COMMAND)
-                || tokenType.equals(MdlTypes.DROP)
-                || tokenType.equals(MdlTypes.RENAME)
-                || tokenType.equals(MdlTypes.SUBCOMMAND)
-                || tokenType.equals(MdlTypes.ATTRIBUTE_COMMAND)
-                || tokenType.equals(MdlTypes.POST_ATTRIBUTE_COMMAND)) {
+        if (isCommandToken(tokenType)) {
             return COMMAND_KEYS;
         }
-        if (tokenType.equals(MdlTypes.OPERATOR) || tokenType.equals(MdlTypes.TO)) {
-            return COMMAND_KEYS;
-        }
-        if (tokenType.equals(MdlTypes.COMPONENT_TYPE) || tokenType.equals(MdlTypes.COMPONENT_TYPE_LITERAL)) {
+        if (tokenType.equals(MdlTypes.COMPONENT_TYPE)
+                || tokenType.equals(MdlTypes.COMPONENT_TYPE_LITERAL)
+                || tokenType.equals(MdlTypes.ATTRIBUTE_LITERAL)) {
             return COMPONENT_TYPE_KEYS;
         }
         if (tokenType.equals(MdlTypes.RECORD_NAME)) {
@@ -75,21 +72,8 @@ public class MdlSyntaxHighlighter extends SyntaxHighlighterBase {
         if (tokenType.equals(MdlTypes.XML_IDENTIFIER)) {
             return XML_IDENTIFIER_KEYS;
         }
-        if (tokenType.equals(MdlTypes.COMMA)
-                || tokenType.equals(MdlTypes.SEMICOLON)
-                || tokenType.equals(MdlTypes.EQUALS)
-                || tokenType.equals(MdlTypes.XML_SLASH)
-                || tokenType.equals(MdlTypes.START_BRACE)
-                || tokenType.equals(MdlTypes.END_BRACE)
-                || tokenType.equals(MdlTypes.OPEN_ANGLE_BRACKET)
-                || tokenType.equals(MdlTypes.CLOSED_ANGLE_BRACKET)
-                || tokenType.equals(MdlTypes.START_PAREN)
-                || tokenType.equals(MdlTypes.END_PAREN)
-                || tokenType.equals(MdlTypes.QUESTION)) {
+        if (isPunctuationToken(tokenType)) {
             return CHARACTER_KEYS;
-        }
-        if (tokenType.equals(MdlTypes.ATTRIBUTE_LITERAL)) {
-            return COMPONENT_TYPE_KEYS;
         }
         if (tokenType.equals(MdlTypes.XML_TAG_CONTENT)) {
             return XML_TEXT_KEYS;
@@ -97,10 +81,7 @@ public class MdlSyntaxHighlighter extends SyntaxHighlighterBase {
         if (tokenType.equals(MdlTypes.ATTRIBUTE) || tokenType.equals(MdlTypes.XML_ATTRIBUTE)) {
             return ATTRIBUTE_KEYS;
         }
-        if (tokenType.equals(MdlTypes.VALUE)
-                || tokenType.equals(MdlTypes.XML_VALUE)
-                || tokenType.equals(MdlTypes.START_QUOTE)
-                || tokenType.equals(MdlTypes.END_QUOTE)) {
+        if (isValueToken(tokenType)) {
             return VALUE_KEYS;
         }
         if (tokenType.equals(MdlTypes.COMMENT)) {
@@ -110,5 +91,37 @@ public class MdlSyntaxHighlighter extends SyntaxHighlighterBase {
             return BAD_CHAR_KEYS;
         }
         return EMPTY_KEYS;
+    }
+
+    private static boolean isCommandToken(IElementType tokenType) {
+        return tokenType.equals(MdlTypes.COMMAND)
+                || tokenType.equals(MdlTypes.DROP)
+                || tokenType.equals(MdlTypes.RENAME)
+                || tokenType.equals(MdlTypes.SUBCOMMAND)
+                || tokenType.equals(MdlTypes.ATTRIBUTE_COMMAND)
+                || tokenType.equals(MdlTypes.POST_ATTRIBUTE_COMMAND)
+                || tokenType.equals(MdlTypes.OPERATOR)
+                || tokenType.equals(MdlTypes.TO);
+    }
+
+    private static boolean isPunctuationToken(IElementType tokenType) {
+        return tokenType.equals(MdlTypes.COMMA)
+                || tokenType.equals(MdlTypes.SEMICOLON)
+                || tokenType.equals(MdlTypes.EQUALS)
+                || tokenType.equals(MdlTypes.XML_SLASH)
+                || tokenType.equals(MdlTypes.START_BRACE)
+                || tokenType.equals(MdlTypes.END_BRACE)
+                || tokenType.equals(MdlTypes.OPEN_ANGLE_BRACKET)
+                || tokenType.equals(MdlTypes.CLOSED_ANGLE_BRACKET)
+                || tokenType.equals(MdlTypes.START_PAREN)
+                || tokenType.equals(MdlTypes.END_PAREN)
+                || tokenType.equals(MdlTypes.QUESTION);
+    }
+
+    private static boolean isValueToken(IElementType tokenType) {
+        return tokenType.equals(MdlTypes.VALUE)
+                || tokenType.equals(MdlTypes.XML_VALUE)
+                || tokenType.equals(MdlTypes.START_QUOTE)
+                || tokenType.equals(MdlTypes.END_QUOTE);
     }
 }

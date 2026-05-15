@@ -14,19 +14,39 @@ import org.slf4j.LoggerFactory;
 
 import static com.veeva.vault.toolbox.core.utils.Checksum.getMd5;
 
+/**
+ * Deploys an MDL file to the connected vault by executing it as an MDL script and,
+ * on success, recording its checksum so the project tracks it as deployed.
+ */
 public class DeployMdlTask extends ToolboxTask {
 	private static final Logger logger = LoggerFactory.getLogger(DeployMdlTask.class);
+
 	private final PsiFile psiFile;
 	private VaultResponse vaultResponse;
 
+	/**
+	 * @param project the IntelliJ project, may be {@code null}
+	 * @param psiFile the MDL file to deploy
+	 */
 	public DeployMdlTask(@Nullable Project project, @NotNull PsiFile psiFile) {
 		super(project, "Deploying MDL");
 		this.psiFile = psiFile;
 	}
 
+	/**
+	 * Executes the MDL script in a background thread and records the file checksum on success.
+	 *
+	 * @param indicator the progress indicator for the background task
+	 */
 	@Override
 	public void run(@NotNull ProgressIndicator indicator) {
 		try {
+			if (toolboxProject.isProductionVault()) {
+				Message message = toolboxProject.newMessage();
+				message.append("This tool cannot be run in a Production domain.");
+				message.showError();
+				return;
+			}
 			String fileContent = psiFile.getText();
 			vaultResponse = toolboxProject.getVaultClient().newRequest(MetaDataRequest.class)
 					.setRequestString(fileContent)
@@ -35,13 +55,18 @@ public class DeployMdlTask extends ToolboxTask {
 				String md5 = getMd5(fileContent);
 				toolboxProject.includeFile(psiFile.getVirtualFile().getPath(), md5);
 			}
-			logger.debug("deployment results = " + vaultResponse.getResponseStatus());
+			if (vaultResponse != null) {
+				logger.debug("deployment results = " + vaultResponse.getResponseStatus());
+			}
 		}
 		catch (Exception e) {
 			logger.error(e.getMessage(), e);
 		}
 	}
 
+	/**
+	 * Displays the deployment results in a UI message on the EDT.
+	 */
 	@Override
 	public void onSuccess() {
 		super.onSuccess();
@@ -49,8 +74,7 @@ public class DeployMdlTask extends ToolboxTask {
 			if (toolboxProject != null && vaultResponse != null) {
 				Message message = toolboxProject.newMessage();
 				message.setTitle("Deploy: " + psiFile.getName());
-				Deploy deploy = new Deploy(toolboxProject);
-				deploy.showResults(vaultResponse, message);
+				Deploy.showResults(vaultResponse, message);
 			}
 		}
 		catch (Exception e) {

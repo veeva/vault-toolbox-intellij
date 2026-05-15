@@ -12,17 +12,35 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 
+/**
+ * Toggles whether a file (or directory of files) is tracked by the toolbox. When
+ * tracking is being enabled, only Java SDK and MDL files are added; directories are
+ * always traversed recursively.
+ */
 public class LinkFileTask extends ToolboxTask {
 	private static final Logger logger = LoggerFactory.getLogger(LinkFileTask.class);
-	private final PsiFile psiFile;
-	private boolean isLinked = false;
 
+	private final PsiFile psiFile;
+	private final boolean isLinked;
+
+	/**
+	 * @param project  the IntelliJ project, may be {@code null}
+	 * @param title    the progress title shown to the user
+	 * @param psiFile  the file or directory whose link state should be toggled
+	 * @param isLinked the current link state; when {@code true} the file is unlinked,
+	 *                 when {@code false} it is linked
+	 */
 	public LinkFileTask(@Nullable Project project, @NotNull String title, @NotNull PsiFile psiFile, boolean isLinked) {
 		super(project, title);
 		this.psiFile = psiFile;
 		this.isLinked = isLinked;
 	}
 
+	/**
+	 * Executes the link toggling logic in a background thread.
+	 *
+	 * @param indicator the progress indicator for the background task
+	 */
 	@Override
 	public void run(@NotNull ProgressIndicator indicator) {
 		try {
@@ -35,28 +53,26 @@ public class LinkFileTask extends ToolboxTask {
 		}
 	}
 
+	/**
+	 * Toggles the link state of the given file or directory.
+	 *
+	 * @param currentPsiFile the file or directory to toggle
+	 */
 	private void toggleLink(PsiFile currentPsiFile) {
 		if (currentPsiFile.isDirectory()) {
 			if (isLinked) {
 				toolboxProject.removeFile(currentPsiFile.getVirtualFile().getPath());
-			}
-			else {
+			} else {
 				toolboxProject.includeFile(currentPsiFile.getVirtualFile().getPath());
 			}
-
-			Arrays.stream(currentPsiFile.getChildren()).forEach(child -> {
-				toggleLink((PsiFile)child);
-			});
+			Arrays.stream(currentPsiFile.getChildren()).forEach(child -> toggleLink((PsiFile) child));
+			return;
 		}
-		else {
-			if (isLinked) {
-				toolboxProject.removeFile(currentPsiFile.getVirtualFile().getPath());
-			}
-			else {
-				if (psiFile instanceof PsiJavaFile || psiFile instanceof MdlFile) {
-					toolboxProject.includeFile(currentPsiFile.getVirtualFile().getPath());
-				}
-			}
+
+		if (isLinked) {
+			toolboxProject.removeFile(currentPsiFile.getVirtualFile().getPath());
+		} else if (psiFile instanceof PsiJavaFile || psiFile instanceof MdlFile) {
+			toolboxProject.includeFile(currentPsiFile.getVirtualFile().getPath());
 		}
 	}
 }

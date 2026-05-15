@@ -16,19 +16,39 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Removes a single SDK source file from the connected vault. The corresponding
+ * checksum is removed from the project's tracked files on success.
+ */
 public class DropSdkTask extends ToolboxTask {
 	private static final Logger logger = LoggerFactory.getLogger(DropSdkTask.class);
+
 	private final PsiFile psiFile;
 	private VaultResponse vaultResponse;
 
+	/**
+	 * @param project the IntelliJ project, may be {@code null}
+	 * @param psiFile the SDK source file to drop
+	 */
 	public DropSdkTask(@Nullable Project project, @NotNull PsiFile psiFile) {
 		super(project, "Dropping SDK");
 		this.psiFile = psiFile;
 	}
 
+	/**
+	 * Removes the SDK source file from Vault in a read action and updates the project's tracked files on success.
+	 *
+	 * @param indicator the progress indicator for the background task
+	 */
 	@Override
 	public void run(@NotNull ProgressIndicator indicator) {
 		try {
+			if (toolboxProject.isProductionVault()) {
+				Message message = toolboxProject.newMessage();
+				message.append("This tool cannot be run in a Production domain.");
+				message.showError();
+				return;
+			}
 			ApplicationManager.getApplication().runReadAction(() -> {
 				if (psiFile instanceof PsiJavaFile psiJavaFile) {
 					String className = psiJavaFile.getPackageName() + "." + psiJavaFile.getName().replace(".java", "");
@@ -38,7 +58,9 @@ public class DropSdkTask extends ToolboxTask {
 					if (vaultResponse != null && !vaultResponse.isFailure()) {
 						toolboxProject.removeFile(psiFile.getVirtualFile().getPath());
 					}
-					logger.debug("deployment results = " + vaultResponse.getResponseStatus());
+					if (vaultResponse != null) {
+						logger.debug("deployment results = " + vaultResponse.getResponseStatus());
+					}
 				}
 			});
 		}
@@ -47,6 +69,9 @@ public class DropSdkTask extends ToolboxTask {
 		}
 	}
 
+	/**
+	 * Displays the results of the drop operation in a UI message on the EDT.
+	 */
 	@Override
 	public void onSuccess() {
 		super.onSuccess();
@@ -54,8 +79,7 @@ public class DropSdkTask extends ToolboxTask {
 			if (toolboxProject != null && vaultResponse != null) {
 				Message message = toolboxProject.newMessage();
 				message.setTitle("Drop: " + psiFile.getName());
-				Deploy deploy = new Deploy(toolboxProject);
-				deploy.showResults(vaultResponse, message);
+				Deploy.showResults(vaultResponse, message);
 			}
 		}
 		catch (Exception e) {

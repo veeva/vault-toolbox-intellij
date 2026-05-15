@@ -7,13 +7,21 @@ import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
+
+/**
+ * Suggests attribute-level commands that mutate attribute lists.
+ */
 public class AttributeCommandCompletionProvider extends CompletionProvider<CompletionParameters> {
+    private static final List<String> ATTRIBUTE_COMMANDS = List.of("ADD", "DROP");
+
     @Override
     protected void addCompletions(
             @NotNull CompletionParameters completionParameters,
             @NotNull ProcessingContext processingContext,
             @NotNull CompletionResultSet resultSet) {
-        resultSet.addElement(LookupElementBuilder.create("ADD").withCaseSensitivity(false));
-        resultSet.addElement(LookupElementBuilder.create("DROP").withCaseSensitivity(false));
+        for (String command : ATTRIBUTE_COMMANDS) {
+            resultSet.addElement(LookupElementBuilder.create(command).withCaseSensitivity(false));
+        }
     }
 }

@@ -1,4 +1,3 @@
-// Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.veeva.vault.toolbox.intellij.settings;
 
 import com.intellij.openapi.options.Configurable;
@@ -10,26 +9,44 @@ import javax.swing.*;
 import java.util.Objects;
 
 /**
- * Provides controller functionality for application settings.
+ * IntelliJ {@link Configurable} that exposes the Vault Toolbox application
+ * settings page in the IDE Settings dialog and bridges UI state in
+ * {@link AppSettingsControl} with persisted state in {@link AppSettings}.
+ *
+ * <p>This class is registered as an {@code applicationConfigurable} extension
+ * and therefore must provide a public no-argument constructor (the implicit
+ * default constructor satisfies that requirement).
  */
-final class AppSettingsConfigurable implements Configurable {
+public final class AppSettingsConfigurable implements Configurable {
 
     private AppSettingsControl appSettingsComponent;
 
-    // A default constructor with no arguments is required because
-    // this implementation is registered as an applicationConfigurable
-
+    /**
+     * Gets the display name of the configurable in the settings dialog.
+     *
+     * @return the display name
+     */
     @Nls(capitalization = Nls.Capitalization.Title)
     @Override
     public String getDisplayName() {
         return "Vault Toolbox";
     }
 
+    /**
+     * Gets the component that should receive focus when the configurable is opened.
+     *
+     * @return the preferred focused component
+     */
     @Override
     public JComponent getPreferredFocusedComponent() {
         return appSettingsComponent.getPreferredFocusedComponent();
     }
 
+    /**
+     * Creates the UI component for the configurable.
+     *
+     * @return the created JComponent
+     */
     @Nullable
     @Override
     public JComponent createComponent() {
@@ -37,28 +54,38 @@ final class AppSettingsConfigurable implements Configurable {
         return appSettingsComponent.getPanel();
     }
 
+    /**
+     * Checks if the settings have been modified.
+     *
+     * @return true if modified, false otherwise
+     */
     @Override
     public boolean isModified() {
-        AppSettings.AppState state =
-                Objects.requireNonNull(AppSettings.getInstance().getState());
+        AppSettings.AppState state = Objects.requireNonNull(AppSettings.getInstance().getState());
         return appSettingsComponent.getAutoConnectField() != state.autoConnect
                 || !appSettingsComponent.getVaultDns().equals(state.vaultDNS)
                 || !appSettingsComponent.getAuthenticationType().equals(state.authenticationType)
                 || !appSettingsComponent.getUsername().equals(state.username)
                 || appSettingsComponent.getCsvMaxRows() != state.csvMaxRows
                 || appSettingsComponent.getConnectionTimeout() != state.connectionTimeout
-                || appSettingsComponent.getSaveSecret() != state.saveSecret
-                || appSettingsComponent.getAllowAllCertificates() != state.allowAllCertificates;
+                || appSettingsComponent.getAllowAllCertificates() != state.allowAllCertificates
+                || !appSettingsComponent.getSavedCredentials().equals(state.savedCredentials);
     }
 
+    /**
+     * Applies the modified settings.
+     */
     @Override
     public void apply() {
-        AppSettings.AppState appState =
-                Objects.requireNonNull(AppSettings.getInstance().getState());
+        AppSettings.AppState appState = Objects.requireNonNull(AppSettings.getInstance().getState());
 
         if (appSettingsComponent.getAllowAllCertificates() != appState.allowAllCertificates) {
             AppSettings.requireRestart = true;
-            JOptionPane.showMessageDialog(appSettingsComponent.getPanel(), "You have made changes that requires a restart of IntelliJ to take effect", "Restart IntelliJ", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(
+                    appSettingsComponent.getPanel(),
+                    "You have made changes that requires a restart of IntelliJ to take effect",
+                    "Restart IntelliJ",
+                    JOptionPane.WARNING_MESSAGE);
         }
 
         appState.autoConnect = appSettingsComponent.getAutoConnectField();
@@ -67,24 +94,29 @@ final class AppSettingsConfigurable implements Configurable {
         appState.username = appSettingsComponent.getUsername();
         appState.csvMaxRows = appSettingsComponent.getCsvMaxRows();
         appState.connectionTimeout = appSettingsComponent.getConnectionTimeout();
-        appState.saveSecret = appSettingsComponent.getSaveSecret();
         appState.allowAllCertificates = appSettingsComponent.getAllowAllCertificates();
+        appState.savedCredentials = new java.util.ArrayList<>(appSettingsComponent.getSavedCredentials());
     }
 
+    /**
+     * Resets the settings to their saved values.
+     */
     @Override
     public void reset() {
-        AppSettings.AppState appState =
-                Objects.requireNonNull(AppSettings.getInstance().getState());
+        AppSettings.AppState appState = Objects.requireNonNull(AppSettings.getInstance().getState());
         appSettingsComponent.setAutoConnectField(appState.autoConnect);
         appSettingsComponent.setVaultDns(appState.vaultDNS);
         appSettingsComponent.setAuthenticationType(appState.authenticationType);
-        appSettingsComponent.settUsername(appState.username);
+        appSettingsComponent.setUsername(appState.username);
         appSettingsComponent.setCsvMaxRows(appState.csvMaxRows);
         appSettingsComponent.setConnectionTimeout(appState.connectionTimeout);
-        appSettingsComponent.setSaveSecret(appState.saveSecret);
         appSettingsComponent.setAllowAllCertificates(appState.allowAllCertificates);
+        appSettingsComponent.setSavedCredentials(new java.util.ArrayList<>(appState.savedCredentials));
     }
 
+    /**
+     * Disposes of the UI resources.
+     */
     @Override
     public void disposeUIResources() {
         appSettingsComponent = null;

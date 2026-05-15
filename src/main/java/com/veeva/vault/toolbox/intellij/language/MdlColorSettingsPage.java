@@ -9,14 +9,15 @@ import icons.ToolboxIcons;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.*;
+import javax.swing.Icon;
 import java.util.Map;
 
 /**
- * Enables choosing colors through a MDL Settings page
+ * Color settings page that lets the user customize the IDE colors used for MDL
+ * syntax highlighting under {@code Settings | Editor | Color Scheme | MDL}.
  */
 public class MdlColorSettingsPage implements ColorSettingsPage {
-    private static final AttributesDescriptor[] DESCRIPTORS = new AttributesDescriptor[]{
+    private static final AttributesDescriptor[] DESCRIPTORS = {
             new AttributesDescriptor("Command", MdlSyntaxHighlighter.COMMAND),
             new AttributesDescriptor("Component type", MdlSyntaxHighlighter.COMPONENT_TYPE),
             new AttributesDescriptor("Record name", MdlSyntaxHighlighter.RECORD_NAME),

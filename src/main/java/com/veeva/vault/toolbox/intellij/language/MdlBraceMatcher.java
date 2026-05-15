@@ -9,12 +9,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Enables brace matching. Note this can only be done with specific brace types and does not support any
+ * Provides paired-brace matching for MDL so the editor can highlight matching
+ * parentheses, braces, quotes, and angle brackets, and auto-insert closing tokens.
  */
 public class MdlBraceMatcher implements PairedBraceMatcher {
     @Override
     public BracePair @NotNull [] getPairs() {
-        return new BracePair[] {
+        return new BracePair[]{
                 new BracePair(MdlTypes.START_PAREN, MdlTypes.END_PAREN, true),
                 new BracePair(MdlTypes.START_BRACE, MdlTypes.END_BRACE, false),
                 new BracePair(MdlTypes.START_QUOTE, MdlTypes.END_QUOTE, false),

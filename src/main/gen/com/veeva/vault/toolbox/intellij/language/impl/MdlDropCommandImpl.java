@@ -2,41 +2,44 @@
 package com.veeva.vault.toolbox.intellij.language.impl;
 
 import java.util.List;
+
 import org.jetbrains.annotations.*;
 import com.intellij.lang.ASTNode;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
+
 import static com.veeva.vault.toolbox.intellij.language.psi.MdlTypes.*;
+
 import com.intellij.extapi.psi.ASTWrapperPsiElement;
 import com.veeva.vault.toolbox.intellij.language.psi.*;
 
 public class MdlDropCommandImpl extends ASTWrapperPsiElement implements MdlDropCommand {
 
-  public MdlDropCommandImpl(@NotNull ASTNode node) {
-    super(node);
-  }
+    public MdlDropCommandImpl(@NotNull ASTNode node) {
+        super(node);
+    }
 
-  public void accept(@NotNull MdlVisitor visitor) {
-    visitor.visitDropCommand(this);
-  }
+    public void accept(@NotNull MdlVisitor visitor) {
+        visitor.visitDropCommand(this);
+    }
 
-  @Override
-  public void accept(@NotNull PsiElementVisitor visitor) {
-    if (visitor instanceof MdlVisitor) accept((MdlVisitor)visitor);
-    else super.accept(visitor);
-  }
+    @Override
+    public void accept(@NotNull PsiElementVisitor visitor) {
+        if (visitor instanceof MdlVisitor) accept((MdlVisitor) visitor);
+        else super.accept(visitor);
+    }
 
-  @Override
-  @Nullable
-  public MdlComponentDropCommand getComponentDropCommand() {
-    return findChildByClass(MdlComponentDropCommand.class);
-  }
+    @Override
+    @Nullable
+    public MdlComponentDropCommand getComponentDropCommand() {
+        return findChildByClass(MdlComponentDropCommand.class);
+    }
 
-  @Override
-  @Nullable
-  public MdlRecordDropCommand getRecordDropCommand() {
-    return findChildByClass(MdlRecordDropCommand.class);
-  }
+    @Override
+    @Nullable
+    public MdlRecordDropCommand getRecordDropCommand() {
+        return findChildByClass(MdlRecordDropCommand.class);
+    }
 
 }

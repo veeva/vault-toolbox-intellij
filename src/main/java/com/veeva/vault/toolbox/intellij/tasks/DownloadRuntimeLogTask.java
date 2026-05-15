@@ -2,9 +2,11 @@ package com.veeva.vault.toolbox.intellij.tasks;
 
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.Project;
-import com.veeva.vault.toolbox.intellij.ui.Message;
-import com.veeva.vault.toolbox.core.utils.FileIO;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.veeva.vault.toolbox.core.logs.sdk.SdkRuntimeLog;
+import com.veeva.vault.toolbox.core.utils.FileIO;
+import com.veeva.vault.toolbox.intellij.ui.Message;
 import com.veeva.vault.vapil.api.model.response.VaultResponse;
 import com.veeva.vault.vapil.api.request.AuthenticationRequest;
 import org.jetbrains.annotations.NotNull;
@@ -19,19 +21,35 @@ import java.time.LocalDate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Downloads SDK runtime logs for a given date range and organizes the downloaded files
+ * into per-date subfolders. An optional callback is invoked after a successful run.
+ */
 public class DownloadRuntimeLogTask extends ToolboxTask {
     private static final Logger logger = LoggerFactory.getLogger(DownloadRuntimeLogTask.class);
+    private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+
     private final LocalDate startDate;
     private final LocalDate endDate;
     private final Runnable onComplete;
     private boolean isSuccess = false;
+    private File outputDirectory;
 
-    public DownloadRuntimeLogTask(@Nullable Project project,
-                                  LocalDate startDate,
-                                  LocalDate endDate) {
+    /**
+     * @param project   the IntelliJ project, may be {@code null}
+     * @param startDate inclusive start of the date range to download
+     * @param endDate   inclusive end of the date range to download
+     */
+    public DownloadRuntimeLogTask(@Nullable Project project, LocalDate startDate, LocalDate endDate) {
         this(project, startDate, endDate, null);
     }
 
+    /**
+     * @param project    the IntelliJ project, may be {@code null}
+     * @param startDate  inclusive start of the date range to download
+     * @param endDate    inclusive end of the date range to download
+     * @param onComplete optional callback invoked after a successful download
+     */
     public DownloadRuntimeLogTask(@Nullable Project project,
                                   LocalDate startDate,
                                   LocalDate endDate,
@@ -42,6 +60,11 @@ public class DownloadRuntimeLogTask extends ToolboxTask {
         this.onComplete = onComplete;
     }
 
+    /**
+     * Authenticates and downloads SDK runtime logs for the given date range.
+     *
+     * @param indicator the progress indicator for the background task
+     */
     @Override
     public void run(@NotNull ProgressIndicator indicator) {
         try {
@@ -53,33 +76,13 @@ public class DownloadRuntimeLogTask extends ToolboxTask {
                 return;
             }
 
-            File outputDirectory = new File(toolboxProject.getLogsDirectory().getPath(),  "/runtime/" + toolboxProject.getVaultId());
+            outputDirectory = new File(toolboxProject.getLogsDirectory().getPath(), "/runtime/" + toolboxProject.getVaultId());
             FileIO.makeDirectories(outputDirectory);
 
             SdkRuntimeLog sdkRuntimeLog = new SdkRuntimeLog();
-            sdkRuntimeLog.download(toolboxProject.getVaultClient(),
-                    startDate, endDate, outputDirectory,
-                    true);
+            sdkRuntimeLog.download(toolboxProject.getVaultClient(), startDate, endDate, outputDirectory, true);
 
-            File[] downloadedFiles = outputDirectory.listFiles();
-            if (downloadedFiles != null) {
-                Pattern datePattern = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
-                for (File file : downloadedFiles) {
-                    if (file.isFile()) {
-                        Matcher matcher = datePattern.matcher(file.getName());
-                        if (matcher.find()) {
-                            String dateStr = matcher.group();
-                            File dateFolder = new File(outputDirectory, dateStr);
-
-                            if (!dateFolder.exists()) {
-                                FileIO.makeDirectories(dateFolder);
-                            }
-
-                            Files.move(file.toPath(), new File(dateFolder, file.getName()).toPath(), StandardCopyOption.REPLACE_EXISTING);
-                        }
-                    }
-                }
-            }
+            organizeFilesByDate(outputDirectory);
             isSuccess = true;
         }
         catch (Exception e) {
@@ -90,12 +93,50 @@ public class DownloadRuntimeLogTask extends ToolboxTask {
         }
     }
 
+    /**
+     * Moves each downloaded log file into a subdirectory named after the date encoded
+     * in its filename.
+     *
+     * @param outputDirectory the directory containing the freshly downloaded log files
+     * @throws Exception if moving a file fails
+     */
+    private void organizeFilesByDate(File outputDirectory) throws Exception {
+        File[] downloadedFiles = outputDirectory.listFiles();
+        if (downloadedFiles == null) {
+            return;
+        }
+        File lastDateFolder = null;
+        for (File file : downloadedFiles) {
+            if (!file.isFile()) {
+                continue;
+            }
+            Matcher matcher = DATE_PATTERN.matcher(file.getName());
+            if (!matcher.find()) {
+                continue;
+            }
+            File dateFolder = new File(outputDirectory, matcher.group());
+            if (!dateFolder.exists()) {
+                FileIO.makeDirectories(dateFolder);
+            }
+            Files.move(file.toPath(), new File(dateFolder, file.getName()).toPath(), StandardCopyOption.REPLACE_EXISTING);
+            if (lastDateFolder == null || dateFolder.getName().compareTo(lastDateFolder.getName()) > 0) {
+                lastDateFolder = dateFolder;
+            }
+        }
+        if (lastDateFolder != null) {
+            this.outputDirectory = lastDateFolder;
+        }
+    }
+
+    /**
+     * Notifies the user of completion, executes the completion callback, and reveals the output directory in the project view.
+     */
     @Override
     public void onSuccess() {
         super.onSuccess();
-
-        if (!isSuccess) return;
-
+        if (!isSuccess) {
+            return;
+        }
         try {
             if (toolboxProject != null) {
                 Message message = toolboxProject.newMessage();
@@ -106,6 +147,8 @@ public class DownloadRuntimeLogTask extends ToolboxTask {
             if (onComplete != null) {
                 onComplete.run();
             }
+            VirtualFile vOutputDir = VfsUtil.findFileByIoFile(outputDirectory, true);
+            selectInProjectView(vOutputDir);
         }
         catch (Exception e) {
             logger.error(e.getMessage(), e);

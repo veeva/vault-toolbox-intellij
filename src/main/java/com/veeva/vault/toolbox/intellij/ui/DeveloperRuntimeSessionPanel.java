@@ -2,24 +2,36 @@ package com.veeva.vault.toolbox.intellij.ui;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intellij.icons.AllIcons;
+import com.intellij.ide.projectView.ProjectView;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.ui.Messages;
-import com.veeva.vault.toolbox.core.models.SdkApiSession;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowId;
+import com.intellij.openapi.wm.ToolWindowManager;
+import com.veeva.vault.toolbox.core.models.SdkRuntimeSession;
 import com.veeva.vault.toolbox.core.utils.FileIO;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
-import com.veeva.vault.toolbox.intellij.tasks.AnalyzeLocalApiLogTask;
+import com.veeva.vault.toolbox.intellij.tasks.AnalyzeLocalRuntimeLogTask;
 import com.veeva.vault.toolbox.intellij.tasks.DownloadRuntimeLogTask;
-import com.veeva.vault.toolbox.core.models.SdkRuntimeSession;
-import icons.ToolboxIcons;
-import org.jdesktop.swingx.JXTable;
+import com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog;
+import org.apache.commons.io.FileUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.table.TableCellRenderer;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -28,18 +40,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Panel for managing and analyzing Vault SDK Runtime logs.
+ * Provides capabilities to download logs from Vault, view local log files,
+ * and perform analysis on runtime performance data.
+ */
 public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<SdkRuntimeSession> {
     private static final Logger logger = LoggerFactory.getLogger(DeveloperRuntimeSessionPanel.class);
 
+    /**
+     * Initializes the SDK Runtime session panel.
+     *
+     * @param toolboxProject The toolbox project context.
+     */
     public DeveloperRuntimeSessionPanel(ToolboxProject toolboxProject) {
         super(toolboxProject);
         initUI();
 
         setupIconRenderer();
 
-        java.awt.event.MouseAdapter localMouseAdapter = new java.awt.event.MouseAdapter() {
+        MouseAdapter localMouseAdapter = new MouseAdapter() {
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
+            public void mouseClicked(MouseEvent e) {
                 int row = sessionTable.rowAtPoint(e.getPoint());
                 int col = sessionTable.columnAtPoint(e.getPoint());
 
@@ -55,18 +77,15 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
                             boolean isActionIcon = "View".equals(colName) || "Locate".equals(colName);
 
                             if ((isActionIcon && e.getClickCount() == 1) || (!isActionIcon && e.getClickCount() == 2)) {
-
                                 if ("Locate".equals(colName)) {
-                                    com.intellij.openapi.vfs.VirtualFile vFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(dateDir);
+                                    VirtualFile vFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(dateDir);
                                     if (vFile != null) {
-                                        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(() -> {
-                                            com.intellij.openapi.wm.ToolWindow projectViewToolWindow = com.intellij.openapi.wm.ToolWindowManager.getInstance(toolboxProject.getProject())
-                                                    .getToolWindow(com.intellij.openapi.wm.ToolWindowId.PROJECT_VIEW);
+                                        ApplicationManager.getApplication().invokeLater(() -> {
+                                            ToolWindow projectViewToolWindow = ToolWindowManager.getInstance(toolboxProject.getProject())
+                                                    .getToolWindow(ToolWindowId.PROJECT_VIEW);
 
                                             if (projectViewToolWindow != null) {
-                                                Runnable selectFile = () -> {
-                                                    com.intellij.ide.projectView.ProjectView.getInstance(toolboxProject.getProject()).select(null, vFile, false);
-                                                };
+                                                Runnable selectFile = () -> ProjectView.getInstance(toolboxProject.getProject()).select(null, vFile, false);
 
                                                 if (!projectViewToolWindow.isVisible()) {
                                                     projectViewToolWindow.show(selectFile);
@@ -74,10 +93,10 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
                                                     selectFile.run();
                                                 }
                                             }
-                                        }, com.intellij.openapi.application.ModalityState.any());
+                                        }, ModalityState.any());
                                     }
                                 } else {
-                                    new com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog(toolboxProject.getProject(), dateDir).show();
+                                    new FileViewerDialog(toolboxProject.getProject(), dateDir).show();
                                 }
                             }
                         }
@@ -86,7 +105,7 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
             }
 
             @Override
-            public void mouseMoved(java.awt.event.MouseEvent e) {
+            public void mouseMoved(MouseEvent e) {
                 int row = sessionTable.rowAtPoint(e.getPoint());
                 int col = sessionTable.columnAtPoint(e.getPoint());
                 if (row >= 0 && col >= 0) {
@@ -94,26 +113,27 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
                     if ("View".equals(colName) || "Locate".equals(colName)) {
                         Object value = sessionTable.getValueAt(row, col);
                         if (value != null) {
-                            sessionTable.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+                            sessionTable.setCursor(new Cursor(Cursor.HAND_CURSOR));
                             return;
                         }
                     }
                 }
-                sessionTable.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+                sessionTable.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
             }
         };
 
         sessionTable.addMouseListener(localMouseAdapter);
         sessionTable.addMouseMotionListener(localMouseAdapter);
-
-        loadData();
     }
 
+    /**
+     * Configures specialized renderers for action icons in the session table.
+     */
     private void setupIconRenderer() {
-        javax.swing.table.TableCellRenderer defaultIconRenderer = sessionTable.getDefaultRenderer(Icon.class);
+        TableCellRenderer defaultIconRenderer = sessionTable.getDefaultRenderer(Icon.class);
 
-        javax.swing.table.TableCellRenderer clickableIconRenderer = (tbl, value, isSelected, hasFocus, row, column) -> {
-            java.awt.Component c = defaultIconRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
+        TableCellRenderer clickableIconRenderer = (tbl, value, isSelected, hasFocus, row, column) -> {
+            Component c = defaultIconRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
             if (c instanceof JComponent) {
                 String colName = sessionTable.getColumnName(column);
                 if (value != null) {
@@ -133,11 +153,21 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
         sessionTable.getColumnModel().getColumn(2).setCellRenderer(clickableIconRenderer);
     }
 
+    /**
+     * Gets the column names for the SDK Runtime session table.
+     *
+     * @return An array of column names.
+     */
     @Override
     protected String[] getColumnNames() {
         return new String[]{"Select", "View", "Locate", "SDK Date"};
     }
 
+    /**
+     * Creates the action group for the toolbar.
+     *
+     * @return The created DefaultActionGroup.
+     */
     @Override
     protected DefaultActionGroup createActionGroup() {
         DefaultActionGroup actionGroup = new DefaultActionGroup();
@@ -198,20 +228,19 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
         return actionGroup;
     }
 
+    /**
+     * Loads the data to be displayed in the panel.
+     */
     @Override
     public void loadData() {
         new Thread(() -> {
             try {
-                allItems.clear();
-
                 Map<String, DeveloperLogItem<SdkRuntimeSession>> itemMap = new HashMap<>();
-
                 File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/runtime/" + toolboxProject.getVaultId());
 
                 if (vaultLogsDir.exists()) {
                     try {
-                        List<File> jsonFiles = com.veeva.vault.toolbox.core.utils.FileIO.getFiles(vaultLogsDir, ".json");
-
+                        List<File> jsonFiles = FileIO.getFiles(vaultLogsDir, ".json");
                         if (jsonFiles != null) {
                             ObjectMapper mapper = new ObjectMapper();
                             for (File jsonFile : jsonFiles) {
@@ -242,10 +271,12 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
                     }
                 }
 
-                allItems.addAll(itemMap.values());
-                allItems.sort((a, b) -> b.getItem().getLogDate().compareTo(a.getItem().getLogDate()));
+                List<DeveloperLogItem<SdkRuntimeSession>> newItems = new ArrayList<>(itemMap.values());
+                newItems.sort((a, b) -> b.getItem().getLogDate().compareTo(a.getItem().getLogDate()));
 
                 SwingUtilities.invokeLater(() -> {
+                    allItems.clear();
+                    allItems.addAll(newItems);
                     filterAndUpdateTable();
                     if (sessionTable != null) {
                         sessionTable.packAll();
@@ -264,16 +295,24 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
         }).start();
     }
 
+    /**
+     * Populates a row in the table model for the given SDK Runtime session item.
+     *
+     * @param item The item to populate the row with.
+     */
     @Override
     protected void populateRow(DeveloperLogItem<SdkRuntimeSession> item) {
         tableModel.addRow(new Object[]{
                 false,
-                item.isLocal() ? AllIcons.Actions.Show : null,     // View Icon (Eye)
-                item.isLocal() ? AllIcons.General.Locate : null,   // Locate Icon (Target)
+                item.isLocal() ? AllIcons.Actions.Show : null,
+                item.isLocal() ? AllIcons.General.Locate : null,
                 item.getItem().getLogDate()
         });
     }
 
+    /**
+     * Downloads the logs for the selected items in the session table.
+     */
     @Override
     protected void downloadSelectedLogs() {
         List<DeveloperLogItem<SdkRuntimeSession>> selectedSessions = getSelectedItems();
@@ -317,6 +356,9 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
         }
     }
 
+    /**
+     * Initiates the analysis of selected local runtime logs.
+     */
     private void analyzeSelectedLogs() {
         List<DeveloperLogItem<SdkRuntimeSession>> selectedSessions = getSelectedItems();
 
@@ -347,11 +389,13 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
             return;
         }
 
-        com.veeva.vault.toolbox.intellij.tasks.AnalyzeLocalRuntimeLogTask task =
-                new com.veeva.vault.toolbox.intellij.tasks.AnalyzeLocalRuntimeLogTask(toolboxProject.getProject(), allCsvFiles);
+        AnalyzeLocalRuntimeLogTask task = new AnalyzeLocalRuntimeLogTask(toolboxProject.getProject(), allCsvFiles);
         task.queue();
     }
 
+    /**
+     * Deletes local log directories for the selected sessions after user confirmation.
+     */
     private void deleteSelectedLocalSessions() {
         List<DeveloperLogItem<SdkRuntimeSession>> selectedSessions = getSelectedItems();
         if (selectedSessions.isEmpty()) return;
@@ -367,20 +411,21 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
 
                 if (dateDir.exists()) {
                     try {
-                        org.apache.commons.io.FileUtils.deleteDirectory(dateDir);
-                    } catch (java.io.IOException e) {
+                        FileUtils.deleteDirectory(dateDir);
+                    } catch (IOException e) {
                         logger.error("Failed to delete log directory: " + dateDir.getAbsolutePath(), e);
                     }
                 }
             }
         }
 
-        com.intellij.openapi.vfs.VirtualFile vLogsDir = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-                .refreshAndFindFileByIoFile(toolboxProject.getLogsDirectory());
-
-        if (vLogsDir != null) {
-            vLogsDir.refresh(false, true);
-        }
+        ApplicationManager.getApplication().invokeLater(() -> {
+            VirtualFile vVaultLogsDir = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(vaultLogsDir);
+            if (vVaultLogsDir != null) {
+                vVaultLogsDir.refresh(true, true);
+            }
+        });
+        toolboxProject.refresh();
 
         JOptionPane.showMessageDialog(this, "Selected local files deleted.", "Info", JOptionPane.INFORMATION_MESSAGE);
         loadData();

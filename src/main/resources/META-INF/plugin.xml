@@ -1,11 +1,9 @@
-<!-- Copyright 2000-2022 JetBrains s.r.o. and other contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file. -->
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
-
 <idea-plugin>
 
     <id>com.veeva.vault.toolbox</id>
 
     <name>Vault Toolbox</name>
+    <version>26.1.1</version>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.java</depends>
@@ -28,6 +26,18 @@
 
     <change-notes>
         <![CDATA[
+        <ul>
+            <li><b>26.1.1</b></li>
+            <li>Added support for saving multiple credentials.</li>
+            <li>Upgraded <code>VAPIL</code> dependency to version <code>26.1.0</code>.</li>
+            <li>Upgraded underlying dependencies (Jackson, JSON-Java, OpenCSV, SQLite JDBC, JFreeChart) to their latest stable patches.</li>
+            <li>Added support for extracting SDKs and dropping SDK and MDL from Vault.</li>
+            <li>Added safety checks for Production Vaults during deploy and drop operations.</li>
+            <li>Added the ability to cancel Configuration Report downloads.</li>
+            <li>Improved Developer Logs with fixes for duplicate entries, concurrency issues, and handling of inactive SDK debug logs.</li>
+            <li>Enhanced UI with updated icons, improved spacing, and automatic highlighting of downloaded log folders.</li>
+            <li>General bug fixes, performance improvements, and resolution of deprecated methods.</li>
+        </ul>
         <ul>
             <li><b>26.1.0</b></li>
             <li>Organize downloaded Configuration Reports into a <code>VaultName/YYYY-MM-DD</code> folder structure.</li>
@@ -60,9 +70,10 @@
                     class="com.veeva.vault.toolbox.intellij.actions.UnlinkProjectAction"
                     text="Disable Vault Toolbox"
                     description="Disable Vault Toolbox"
-                    icon="ToolboxIcons.Close">
+                    icon="ToolboxIcons.Trash">
             </action>
             <action id="ToolboxProjectMenu.DownloadAnalyzeLogAction"
+                    icon="ToolboxIcons.Download"
                     class="com.veeva.vault.toolbox.intellij.actions.DownloadAnalyzeLogAction"
                     text="Download and Analyze Logs" />
             <action id="ToolboxProjectMenu.DeployAction"
@@ -71,6 +82,7 @@
                     text="Deploy to Vault" />
             <action
                     id="ToolboxProjectMenu.DropAction"
+                    icon="ToolboxIcons.Trash"
                     class="com.veeva.vault.toolbox.intellij.actions.DropAction"
                     text="Drop from Vault" />
 
@@ -108,6 +120,7 @@
                     text="Deploy to Vault" />
             <action
                     id="ToolboxEditorMenu.DropAction"
+                    icon="ToolboxIcons.Trash"
                     class="com.veeva.vault.toolbox.intellij.actions.DropAction"
                     text="Drop from Vault" />
 
@@ -123,7 +136,7 @@
                     class="com.veeva.vault.toolbox.intellij.actions.UnlinkProjectAction"
                     text="Unlink Vault Toolbox Project"
                     description="Unlink Toolbox Project"
-                    icon="ToolboxIcons.Close">
+                    icon="ToolboxIcons.Trash">
             </action>
 
             <separator />

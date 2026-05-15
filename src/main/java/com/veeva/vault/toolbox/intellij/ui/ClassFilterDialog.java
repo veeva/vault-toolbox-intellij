@@ -14,19 +14,33 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Dialog for selecting Vault custom classes to filter.
+ * Fetches available classes from Vault and allows the user to select them via a table.
+ */
 public class ClassFilterDialog extends DialogWrapper {
     private final ToolboxProject toolboxProject;
     private JXTable table;
     private DefaultTableModel tableModel;
 
+    /**
+     * Constructs a ClassFilterDialog.
+     *
+     * @param toolboxProject The current toolbox project context.
+     */
     public ClassFilterDialog(ToolboxProject toolboxProject) {
-        super(true);
+        super(toolboxProject.getProject(), true);
         this.toolboxProject = toolboxProject;
         init();
         setTitle("Select Class Filters");
         loadClasses();
     }
 
+    /**
+     * Creates the center panel of the dialog containing the class selection table.
+     *
+     * @return The center panel component.
+     */
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
@@ -37,7 +51,9 @@ public class ClassFilterDialog extends DialogWrapper {
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public Class<?> getColumnClass(int columnIndex) {
-                if (columnIndex == 0) return Boolean.class;
+                if (columnIndex == 0) {
+                    return Boolean.class;
+                }
                 return super.getColumnClass(columnIndex);
             }
 
@@ -46,6 +62,7 @@ public class ClassFilterDialog extends DialogWrapper {
                 return column == 0;
             }
         };
+
         table = new JXTable(tableModel);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         table.setSortable(true);
@@ -63,6 +80,9 @@ public class ClassFilterDialog extends DialogWrapper {
         return panel;
     }
 
+    /**
+     * Asynchronously loads the list of classes from Vault.
+     */
     private void loadClasses() {
         new Thread(() -> {
             if (toolboxProject.prepareRequest()) {
@@ -85,11 +105,16 @@ public class ClassFilterDialog extends DialogWrapper {
         }).start();
     }
 
+    /**
+     * Returns a list of the class names that were selected by the user.
+     *
+     * @return A list of selected class names.
+     */
     public List<String> getSelectedClasses() {
         List<String> selected = new ArrayList<>();
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             Boolean isSelected = (Boolean) tableModel.getValueAt(i, 0);
-            if (isSelected != null && isSelected) {
+            if (Boolean.TRUE.equals(isSelected)) {
                 selected.add((String) tableModel.getValueAt(i, 1));
             }
         }

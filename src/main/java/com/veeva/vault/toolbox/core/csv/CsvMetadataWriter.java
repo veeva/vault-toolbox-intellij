@@ -22,61 +22,54 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 
-public class CsvMetadataWriter<T> {
+/**
+ * Writes rows of CSV data using a schema built up at runtime. Callers register columns with
+ * {@link #addColumn(String)} in the desired output order, then invoke {@link #writeAllRows}
+ * to serialize the rows to disk.
+ */
+public class CsvMetadataWriter {
 	private static final Logger logger = LoggerFactory.getLogger(CsvMetadataWriter.class);
+	private static final int OUTPUT_BUFFER_SIZE = 1024;
 
-	private CsvSchema.Builder outputSchemaBuilder;
+	private final CsvSchema.Builder outputSchemaBuilder = CsvSchema.builder();
 
-
-	public CsvMetadataWriter() {
-		outputSchemaBuilder = CsvSchema.builder();
-	}
-
+	/**
+	 * Appends a column to the output schema. Columns are written in the order they are added.
+	 *
+	 * @param fieldName name of the column to add
+	 */
 	public void addColumn(String fieldName) {
 		outputSchemaBuilder.addColumn(fieldName);
 	}
 
-	public CsvSchema.Builder getOutputSchemaBuilder() {
-		return outputSchemaBuilder;
-	}
-
-	public void writeHeader(boolean useHeader, boolean appendToFile, File outputFile, Object outputRows) {
-		try {
-			CsvMapper outputMapper = new CsvMapper();
-			outputMapper.configure(JsonGenerator.Feature.IGNORE_UNKNOWN, true);
-			outputMapper.configure(CsvGenerator.Feature.ALWAYS_QUOTE_STRINGS, true);
-
-			outputSchemaBuilder.setUseHeader(useHeader);
-			FileIO.makeDirectories(outputFile.getParentFile());
-			ObjectWriter resultsWriter = outputMapper.writer(outputSchemaBuilder.build());
-			FileOutputStream tempFileOutputStream = new FileOutputStream(outputFile, appendToFile);
-			BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(tempFileOutputStream, 1024);
-			OutputStreamWriter writerOutputStream = new OutputStreamWriter(bufferedOutputStream, StandardCharsets.UTF_8);
-			resultsWriter.writeValue(writerOutputStream, outputRows);
-		}
-		catch (Exception e) {
-			logger.error(e.getMessage());
-			e.printStackTrace();
-		}
-	}
-
+	/**
+	 * Serializes {@code outputRows} to {@code outputFile} using the schema built via
+	 * {@link #addColumn(String)}. Missing parent directories are created automatically and
+	 * {@code null} values are written as empty strings. Errors are logged rather than propagated.
+	 *
+	 * @param useHeader {@code true} to emit a header row before the data rows
+	 * @param appendToFile {@code true} to append to an existing file, {@code false} to overwrite
+	 * @param outputFile destination file
+	 * @param outputRows rows to serialize, typically a {@code Collection} of POJOs or maps
+	 */
 	public void writeAllRows(boolean useHeader, boolean appendToFile, File outputFile, Object outputRows) {
 		try {
 			CsvMapper outputMapper = new CsvMapper();
 			outputMapper.configure(JsonGenerator.Feature.IGNORE_UNKNOWN, true);
 			outputMapper.configure(CsvGenerator.Feature.ALWAYS_QUOTE_STRINGS, true);
+
 			outputSchemaBuilder.setUseHeader(useHeader);
 			outputSchemaBuilder.setNullValue("");
 			FileIO.makeDirectories(outputFile.getParentFile());
+
 			ObjectWriter resultsWriter = outputMapper.writer(outputSchemaBuilder.build());
-			FileOutputStream tempFileOutputStream = new FileOutputStream(outputFile, appendToFile);
-			BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(tempFileOutputStream, 1024);
-			OutputStreamWriter writerOutputStream = new OutputStreamWriter(bufferedOutputStream, StandardCharsets.UTF_8);
-			resultsWriter.writeValue(writerOutputStream, outputRows);
-		}
-		catch (Exception e) {
-			logger.error(e.getMessage());
-			e.printStackTrace();
+			try (FileOutputStream fileStream = new FileOutputStream(outputFile, appendToFile);
+				 BufferedOutputStream bufferedStream = new BufferedOutputStream(fileStream, OUTPUT_BUFFER_SIZE);
+				 OutputStreamWriter writer = new OutputStreamWriter(bufferedStream, StandardCharsets.UTF_8)) {
+				resultsWriter.writeValue(writer, outputRows);
+			}
+		} catch (Exception e) {
+			logger.error("Error writing CSV rows to {}: {}", outputFile, e.getMessage(), e);
 		}
 	}
 }

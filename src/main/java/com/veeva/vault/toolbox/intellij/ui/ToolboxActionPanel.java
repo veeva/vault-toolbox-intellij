@@ -4,33 +4,69 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.ui.treeStructure.Tree;
 import com.veeva.vault.toolbox.intellij.listeners.ToolboxTreeNodeListener;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
-import com.veeva.vault.toolbox.intellij.tasks.AnalyzApiLogTask;
-import com.veeva.vault.toolbox.intellij.tasks.AnalyzDebugLogTask;
 import com.veeva.vault.toolbox.intellij.tasks.ConfiguratonReportTask;
 import com.veeva.vault.toolbox.intellij.tasks.ExtractMdlTask;
+import com.veeva.vault.toolbox.intellij.tasks.ExtractSdkTask;
 import icons.ToolboxIcons;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
 
+/**
+ * Provides a tree-based navigation panel for executing various Vault developer actions,
+ * including log retrieval, configuration management, and package deployment.
+ */
 public class ToolboxActionPanel extends JPanel {
 	private static final Logger logger = LoggerFactory.getLogger(ToolboxActionPanel.class);
 
+	/**
+	 * The current project context.
+	 */
 	ToolboxProject toolboxProject;
+
+	/**
+	 * The tree component used to display the action nodes.
+	 */
 	JTree tree;
+
+	/**
+	 * The root node for developer logs.
+	 */
 	ToolboxTreeNode logsNode;
+
+	/**
+	 * The root node for configuration components.
+	 */
 	ToolboxTreeNode configurationNode;
+
+	/**
+	 * The root node for deployment actions.
+	 */
 	ToolboxTreeNode deploymentNode;
+
+	/**
+	 * The main root node of the action tree.
+	 */
 	ToolboxTreeNode rootNode;
 
+	/**
+	 * Creates a new action panel for the specified project.
+	 *
+	 * @param toolboxProject The toolbox project context.
+	 */
 	public ToolboxActionPanel(ToolboxProject toolboxProject) {
 		super();
 		this.toolboxProject = toolboxProject;
 		init();
 	}
 
+	/**
+	 * Initializes the tree component and its visual properties.
+	 */
 	private void init() {
 		this.setLayout(new BorderLayout());
 		ToolboxTreeNodeRenderer renderer = new ToolboxTreeNodeRenderer();
@@ -45,19 +81,17 @@ public class ToolboxActionPanel extends JPanel {
 			tree.expandRow(i);
 		}
 
-		ApplicationManager.getApplication().invokeLater(()-> {
-			buildTree();
-		});
+		ApplicationManager.getApplication().invokeLater(this::buildTree);
 	}
 
+	/**
+	 * Constructs the action tree structure and defines the behavior for each action node.
+	 */
 	void buildTree() {
 		logsNode = new ToolboxTreeNode("Developer Logs", true, ToolboxIcons.Code);
 		configurationNode = new ToolboxTreeNode("Components", true, ToolboxIcons.Component);
 		deploymentNode = new ToolboxTreeNode("Deployment", true, ToolboxIcons.Vpk);
 
-		//-----------------------------------------------------------------------------------------------
-		//LOGS
-		//-----------------------------------------------------------------------------------------------
 		ToolboxTreeNode apiUsageNode = new ToolboxTreeNode(
 				"API Usage",
 				true,
@@ -143,42 +177,36 @@ public class ToolboxActionPanel extends JPanel {
 		logsNode.add(runtimeNode);
 		logsNode.add(profilerNode);
 
-		//-----------------------------------------------------------------------------------------------
+		ToolboxTreeNode configReportNode = new ToolboxTreeNode(
+				"Download Configuration Report",
+				true,
+				ToolboxIcons.Download,
+				new ToolboxTreeNodeListener() {
+					@Override
+					public void singleClick(ToolboxTreeNode node) {
+					}
 
+					@Override
+					public void doubleClick(ToolboxTreeNode node) {
+						ApplicationManager.getApplication().invokeLater(() -> {
+							if (ConfiguratonReportTask.isDownloading.get()) {
+								Message message = toolboxProject.newMessage();
+								message.setTitle("Download in Progress");
+								message.append("A Configuration Report is already downloading. Please wait for it to finish before starting another.");
+								message.showWarning();
+								return;
+							}
 
-		//-----------------------------------------------------------------------------------------------
-		//CONFIG
-		//-----------------------------------------------------------------------------------------------
-        ToolboxTreeNode configReportNode = new ToolboxTreeNode(
-                "Download Configuration Report",
-                true,
-                ToolboxIcons.Download,
-                new ToolboxTreeNodeListener() {
-                    @Override
-                    public void singleClick(ToolboxTreeNode node) {
-                    }
+							if (toolboxProject.prepareRequest()) {
+								ConfiguratonReportTask.isDownloading.set(true);
 
-                    @Override
-                    public void doubleClick(ToolboxTreeNode node) {
-                        ApplicationManager.getApplication().invokeLater(() -> {
-                            if (ConfiguratonReportTask.isDownloading.get()) {
-                                Message message = toolboxProject.newMessage();
-                                message.setTitle("Download in Progress");
-                                message.append("A Configuration Report is already downloading. Please wait for it to finish before starting another.");
-                                message.showWarning();
-                                return;
-                            }
+								ConfiguratonReportTask task = new ConfiguratonReportTask(toolboxProject.getProject());
+								task.queue();
+							}
+						});
 
-                            if (toolboxProject.prepareRequest()) {
-                                ConfiguratonReportTask.isDownloading.set(true);
-
-                                ConfiguratonReportTask task = new ConfiguratonReportTask(toolboxProject.getProject());
-                                task.queue();
-                            }
-                        });
-
-                    }
-                });
+					}
+				});
 
 		ToolboxTreeNode mdlExtractNode = new ToolboxTreeNode(
 				"Extract MDL from Vault",
@@ -193,11 +221,24 @@ public class ToolboxActionPanel extends JPanel {
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
 							if (toolboxProject.prepareRequest()) {
-								MdlDialog mdlDialog = new MdlDialog(toolboxProject, MdlDialog.ActionType.DOWNLOAD);
-								if (mdlDialog.showAndGet()) {
-									ExtractMdlTask task = new ExtractMdlTask(toolboxProject.getProject());
-									task.queue();
+								File vaultMdlDir = new File(toolboxProject.getMdlDirectory(), toolboxProject.getVaultId().toString());
+								boolean mdlAlreadyExtracted = vaultMdlDir.exists()
+										&& !FileUtils.listFiles(vaultMdlDir, new String[]{"mdl"}, true).isEmpty();
+
+								if (mdlAlreadyExtracted) {
+									MdlDialog mdlDialog = new MdlDialog(toolboxProject, MdlDialog.ActionType.DOWNLOAD);
+									if (!mdlDialog.showAndGet()) {
+										return;
+									}
+								} else {
+									ExtractMdlDialog mdlDialog = new ExtractMdlDialog(toolboxProject);
+									if (!mdlDialog.showAndGet()) {
+										return;
+									}
 								}
+
+								ExtractMdlTask task = new ExtractMdlTask(toolboxProject.getProject());
+								task.queue();
 							}
 						});
 					}
@@ -215,9 +256,25 @@ public class ToolboxActionPanel extends JPanel {
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
-							if (toolboxProject.isToolboxEnabled()) {
-								ExtractSdkDialog sdkDialog = new ExtractSdkDialog(toolboxProject);
-								sdkDialog.show();
+							if (toolboxProject.prepareRequest()) {
+								File vaultSdkDir = new File(new File(toolboxProject.getToolboxDirectory(), "sdk"), toolboxProject.getVaultId().toString());
+								boolean sdkAlreadyExtracted = vaultSdkDir.exists()
+										&& !FileUtils.listFiles(vaultSdkDir, new String[]{"java"}, true).isEmpty();
+
+								if (sdkAlreadyExtracted) {
+									SdkDialog sdkDialog = new SdkDialog(toolboxProject, SdkDialog.ActionType.DOWNLOAD);
+									if (!sdkDialog.showAndGet()) {
+										return;
+									}
+								} else {
+									ExtractSdkDialog sdkDialog = new ExtractSdkDialog(toolboxProject);
+									if (!sdkDialog.showAndGet()) {
+										return;
+									}
+								}
+								
+								ExtractSdkTask task = new ExtractSdkTask(toolboxProject.getProject());
+								task.queue();
 							}
 						});
 					}
@@ -225,99 +282,8 @@ public class ToolboxActionPanel extends JPanel {
 
 		configurationNode.add(configReportNode);
 		configurationNode.add(mdlExtractNode);
-		//configurationNode.add(sdkExtractNode);
+		configurationNode.add(sdkExtractNode);
 
-		/*
-		//-----------------------------------------------------------------------------------------------
-		//Vault Packages
-		//-----------------------------------------------------------------------------------------------
-		ToolboxTreeNode designVpkNode = new ToolboxTreeNode(
-				"Design",
-				true,
-				ToolboxIcons.Pencil,
-				new ToolboxTreeNodeListener() {
-					@Override
-					public void singleClick(ToolboxTreeNode node) {
-					}
-
-					@Override
-					public void doubleClick(ToolboxTreeNode node) {
-						PackageDialog packageDialog = new PackageDialog(toolboxProject, PackageDialog.ActionType.DESIGN);
-						packageDialog.show();
-					}
-				});
-
-		ToolboxTreeNode buildVpkNode = new ToolboxTreeNode(
-				"Build",
-				true,
-				ToolboxIcons.Box,
-				new ToolboxTreeNodeListener() {
-					@Override
-					public void singleClick(ToolboxTreeNode node) {
-					}
-
-					@Override
-					public void doubleClick(ToolboxTreeNode node) {
-						PackageDialog packageDialog = new PackageDialog(toolboxProject, PackageDialog.ActionType.BUILD);
-						packageDialog.show();
-
-					}
-				});
-
-		ToolboxTreeNode deployVpkNode = new ToolboxTreeNode(
-				"Deploy",
-				true,
-				ToolboxIcons.Upload,
-				new ToolboxTreeNodeListener() {
-					@Override
-					public void singleClick(ToolboxTreeNode node) {
-					}
-
-					@Override
-					public void doubleClick(ToolboxTreeNode node) {
-						ApplicationManager.getApplication().invokeLater(() -> {
-							if (toolboxProject.prepareRequest()) {
-								PackageDialog packageDialog = new PackageDialog(toolboxProject, PackageDialog.ActionType.DEPLOY);
-								packageDialog.show();
-							}
-
-						});
-
-					}
-				});
-
-		ToolboxTreeNode buildAndDeployVpkNode = new ToolboxTreeNode(
-				"Build and Deploy",
-				true,
-				ToolboxIcons.DoubleRight,
-				new ToolboxTreeNodeListener() {
-					@Override
-					public void singleClick(ToolboxTreeNode node) {
-					}
-
-					@Override
-					public void doubleClick(ToolboxTreeNode node) {
-						ApplicationManager.getApplication().invokeLater(() -> {
-							if (toolboxProject.prepareRequest()) {
-								PackageDialog packageDialog = new PackageDialog(toolboxProject, PackageDialog.ActionType.BUILD_DEPLOY);
-								packageDialog.show();
-							}
-
-						});
-
-					}
-				});
-
-		deploymentNode.add(designVpkNode);
-		deploymentNode.add(buildVpkNode);
-		deploymentNode.add(deployVpkNode);
-		deploymentNode.add(buildAndDeployVpkNode);
-		//-----------------------------------------------------------------------------------------------
-		*/
-
-		//-----------------------------------------------------------------------------------------------
-		//Deployment Packages
-		//-----------------------------------------------------------------------------------------------
 		ToolboxTreeNode localPackagesNode = new ToolboxTreeNode(
 				"Local Packages",
 				true,
@@ -358,7 +324,6 @@ public class ToolboxActionPanel extends JPanel {
 
 		deploymentNode.add(localPackagesNode);
 		deploymentNode.add(inboundPackagesNode);
-		//-----------------------------------------------------------------------------------------------
 
 		rootNode.add(logsNode);
 		rootNode.add(configurationNode);

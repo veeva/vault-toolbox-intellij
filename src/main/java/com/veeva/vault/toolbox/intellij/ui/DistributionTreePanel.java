@@ -23,16 +23,27 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import java.awt.*;
 import java.io.File;
+import java.util.List;
 
+/**
+ * Panel that displays and manages the hierarchy of Web SDK distributions in a Vault VPK package.
+ * Supports adding, editing, and removing distributions from the build manifest.
+ */
 public class DistributionTreePanel extends JPanel {
 	private static final Logger logger = LoggerFactory.getLogger(DistributionTreePanel.class);
 
-	ToolboxProject toolboxProject;
-	JTree tree;
-	DefaultTreeModel treeModel;
-	ToolboxTreeNode rootNode;
-	final VpkBuildManifest buildManifest;
+	private final ToolboxProject toolboxProject;
+	private JTree tree;
+	private DefaultTreeModel treeModel;
+	private ToolboxTreeNode rootNode;
+	private final VpkBuildManifest buildManifest;
 
+	/**
+	 * Initializes the distribution tree panel.
+	 *
+	 * @param toolboxProject The toolbox project context.
+	 * @param buildManifest  The package build manifest to manage.
+	 */
 	public DistributionTreePanel(ToolboxProject toolboxProject, VpkBuildManifest buildManifest) {
 		super();
 		this.toolboxProject = toolboxProject;
@@ -40,6 +51,9 @@ public class DistributionTreePanel extends JPanel {
 		init();
 	}
 
+	/**
+	 * Configures the UI components, toolbar, and initial tree state.
+	 */
 	private void init() {
 		this.setLayout(new BorderLayout());
 		ToolboxTreeNodeRenderer renderer = new ToolboxTreeNodeRenderer();
@@ -57,6 +71,11 @@ public class DistributionTreePanel extends JPanel {
 		buildTree();
 	}
 
+	/**
+	 * Creates the management toolbar with actions for modifying the distribution list.
+	 *
+	 * @return The toolbar component.
+	 */
 	private JComponent createToolbar() {
 		DefaultActionGroup actionGroup = new DefaultActionGroup();
 		
@@ -94,6 +113,9 @@ public class DistributionTreePanel extends JPanel {
 		return actionToolbar.getComponent();
 	}
 
+	/**
+	 * Opens a dialog to create a new distribution and adds it to the manifest.
+	 */
 	private void addDistribution() {
 		DistributionDialog dialog = new DistributionDialog(null);
 		if (dialog.showAndGet()) {
@@ -106,18 +128,22 @@ public class DistributionTreePanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Opens a dialog to edit the selected distribution.
+	 */
 	private void editDistribution() {
 		VpkBuildManifest.WebSdk.Distribution distribution = getSelectedDistribution();
 		if (distribution != null) {
 			DistributionDialog dialog = new DistributionDialog(distribution);
 			if (dialog.showAndGet()) {
-				// Update is handled by reference modification in dialog or we can replace it
-				// Since we modify the object directly in the dialog (if we pass it), we just need to refresh tree
 				buildTree();
 			}
 		}
 	}
 
+	/**
+	 * Removes the selected distribution from the manifest and refreshes the tree.
+	 */
 	private void removeDistribution() {
 		VpkBuildManifest.WebSdk.Distribution distribution = getSelectedDistribution();
 		if (distribution != null && buildManifest.getWebSdk() != null) {
@@ -126,6 +152,11 @@ public class DistributionTreePanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Determines the currently selected distribution in the tree.
+	 *
+	 * @return The selected distribution, or null if nothing is selected.
+	 */
 	private VpkBuildManifest.WebSdk.Distribution getSelectedDistribution() {
 		TreePath selectionPath = tree.getSelectionPath();
 		if (selectionPath != null) {
@@ -134,7 +165,6 @@ public class DistributionTreePanel extends JPanel {
 			if (userObject instanceof VpkBuildManifest.WebSdk.Distribution) {
 				return (VpkBuildManifest.WebSdk.Distribution) userObject;
 			}
-			// Handle child nodes (properties) - find parent
 			if (selectedNode.getParent() instanceof ToolboxTreeNode) {
 				Object parentObject = ((ToolboxTreeNode) selectedNode.getParent()).getUserObject();
 				if (parentObject instanceof VpkBuildManifest.WebSdk.Distribution) {
@@ -145,11 +175,14 @@ public class DistributionTreePanel extends JPanel {
 		return null;
 	}
 
+	/**
+	 * Rebuilds the visual tree structure based on the current state of the build manifest distributions.
+	 */
 	void buildTree() {
 		rootNode.removeAllChildren();
 		if (buildManifest.getWebSdk() != null) {
-			java.util.List<VpkBuildManifest.WebSdk.Distribution> distributions = buildManifest.getWebSdk().getDistributions();
-			if (distributions != null && distributions.size() > 0) {
+			List<VpkBuildManifest.WebSdk.Distribution> distributions = buildManifest.getWebSdk().getDistributions();
+			if (distributions != null && !distributions.isEmpty()) {
 				for (VpkBuildManifest.WebSdk.Distribution distribution : distributions) {
 					ToolboxTreeNode distributionNode = new ToolboxTreeNode(distribution, true, ToolboxIcons.ComponentFolder, new ToolboxTreeNodeListener() {
 						@Override
@@ -182,6 +215,9 @@ public class DistributionTreePanel extends JPanel {
 		tree.setRootVisible(false);
 	}
 
+	/**
+	 * Dialog for adding or editing a Web SDK distribution.
+	 */
 	private class DistributionDialog extends DialogWrapper {
 		private JTextField nameField;
 		private TextFieldWithBrowseButton manifestField;
@@ -189,8 +225,13 @@ public class DistributionTreePanel extends JPanel {
 		private TextFieldWithBrowseButton shellField;
 		private VpkBuildManifest.WebSdk.Distribution distribution;
 
+		/**
+		 * Initializes the distribution dialog.
+		 *
+		 * @param distribution The distribution to edit, or null to create a new one.
+		 */
 		public DistributionDialog(VpkBuildManifest.WebSdk.Distribution distribution) {
-			super(true);
+			super(toolboxProject.getProject(), true);
 			this.distribution = distribution;
 			setTitle(distribution == null ? "Add Distribution" : "Edit Distribution");
 			init();
@@ -207,7 +248,6 @@ public class DistributionTreePanel extends JPanel {
 
 			VirtualFile projectFile = VfsUtil.findFileByIoFile(new File(toolboxProject.getProject().getBasePath()), true);
 
-			// Configure file choosers
 			FileChooserDescriptor manifestDescriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json");
 			manifestDescriptor.setForcedToUseIdeaFileChooser(true);
 			manifestDescriptor.setRoots(projectFile);
@@ -220,7 +260,7 @@ public class DistributionTreePanel extends JPanel {
 			pathDescriptor.withTitle("Select Distribution Path");
 			pathField.addBrowseFolderListener(toolboxProject.getProject(), pathDescriptor);
 
-			FileChooserDescriptor shellDescriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor(); // .sh or .cmd
+			FileChooserDescriptor shellDescriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor();
 			shellDescriptor.setForcedToUseIdeaFileChooser(true);
 			shellDescriptor.setRoots(projectFile);
 			shellDescriptor.withTitle("Select Shell Script");
@@ -245,6 +285,9 @@ public class DistributionTreePanel extends JPanel {
 			return panel;
 		}
 
+		/**
+		 * @return The distribution object configured in the dialog.
+		 */
 		public VpkBuildManifest.WebSdk.Distribution getDistribution() {
 			if (distribution == null) {
 				distribution = new VpkBuildManifest.WebSdk.Distribution();

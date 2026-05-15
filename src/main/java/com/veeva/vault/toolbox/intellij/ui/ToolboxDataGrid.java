@@ -9,14 +9,21 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A reusable data grid component for displaying lists of {@link VaultModel} objects.
+ * Supports automatic column generation and an optional "Select All" feature.
+ */
 public class ToolboxDataGrid extends JPanel {
-	ToolboxTableModel tableModel = new ToolboxTableModel();
-	JCheckBox selectAllCheck;
-	List<String> columnsName = null;
-	List<? extends VaultModel> data;
+	private ToolboxTableModel tableModel = new ToolboxTableModel();
+	private JCheckBox selectAllCheck;
+	private List<String> columnsName = null;
+	private List<? extends VaultModel> data;
 
+	/**
+	 * Default constructor that initializes the grid with sample data.
+	 */
 	public ToolboxDataGrid() {
-		columnsName = new ArrayList<String>();
+		columnsName = new ArrayList<>();
 		columnsName.add("code_type");
 		columnsName.add("class_name");
 
@@ -30,35 +37,48 @@ public class ToolboxDataGrid extends JPanel {
 		init(true);
 	}
 
+	/**
+	 * Initializes the grid with specific columns and data.
+	 *
+	 * @param columnsName      List of column keys to extract from the models.
+	 * @param data             List of models to display.
+	 * @param includeSelectAll true to include a selection checkbox column.
+	 */
 	public ToolboxDataGrid(List<String> columnsName, List<? extends VaultModel> data, boolean includeSelectAll) {
 		this.columnsName = columnsName;
 		this.data = data;
 		init(includeSelectAll);
 	}
 
+	/**
+	 * Synchronizes all row selection states with the state of the "Select All" checkbox.
+	 */
 	protected void toggleSelect() {
 		try {
-			Boolean newValue = selectAllCheck.isSelected();
-			for(int row = 0;row < tableModel.getRowCount();row++) {
-				tableModel.setValueAt(newValue,row,0);
+			boolean newValue = selectAllCheck.isSelected();
+			for(int row = 0; row < tableModel.getRowCount(); row++) {
+				tableModel.setValueAt(newValue, row, 0);
 			}
 			selectAllCheck.revalidate();
 			repaint();
-		}
-		catch (Exception e) {
+		} catch (Exception ignored) {
 		}
 	}
 
+	/**
+	 * Configures the internal table model and UI layout.
+	 *
+	 * @param includeSelectAll true to add the selection column.
+	 */
     public void init(boolean includeSelectAll) {
 		this.setLayout(new BorderLayout());
 		tableModel = new ToolboxTableModel() {
+			@Override
 			public Class<?> getColumnClass(int column) {
-				switch (column) {
-					case 0:
-						return Boolean.class;
-					default:
-						return String.class;
+				if (column == 0 && includeSelectAll) {
+					return Boolean.class;
 				}
+				return String.class;
 			}
 		};
 
@@ -83,33 +103,25 @@ public class ToolboxDataGrid extends JPanel {
 
 		JBTable table = new JBTable(tableModel);
 		if (includeSelectAll) {
-			tableModel.addColumn("include");
 			table.getColumnModel().getColumn(0).setMinWidth(75);
 			table.getColumnModel().getColumn(0).setMaxWidth(75);
 		}
 
-
-		JPanel dataPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
 		JBScrollPane scrollPane = new JBScrollPane(table);
 		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 		scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-		scrollPane.setPreferredSize(new Dimension(800,250));
-		//dataPanel.add(scrollPane);
+		scrollPane.setPreferredSize(new Dimension(800, 250));
 
 		JPanel controlPanel = new JPanel(new BorderLayout());
 
 		if (includeSelectAll) {
 			selectAllCheck = new JCheckBox();
 			selectAllCheck.setText("Select All");
-			selectAllCheck.addActionListener(e -> {
-				toggleSelect();
-			});
+			selectAllCheck.addActionListener(e -> toggleSelect());
 			controlPanel.add(selectAllCheck, BorderLayout.WEST);
 		}
 
-
-
-		add(dataPanel, BorderLayout.CENTER);
+		add(scrollPane, BorderLayout.CENTER);
 		add(controlPanel, BorderLayout.SOUTH);
         setVisible(true);
     }

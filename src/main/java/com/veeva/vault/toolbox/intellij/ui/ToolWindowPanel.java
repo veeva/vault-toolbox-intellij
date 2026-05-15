@@ -1,87 +1,102 @@
-// Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.veeva.vault.toolbox.intellij.ui;
 
+import com.intellij.openapi.actionSystem.AnAction;
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.options.ShowSettingsUtil;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
-import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
+import com.veeva.vault.toolbox.intellij.settings.AppSettingsConfigurable;
 import icons.ToolboxIcons;
-import kotlin.Unit;
-import kotlin.coroutines.Continuation;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import java.util.List;
 
+/**
+ * Factory class for creating and managing the Vault Toolbox tool window.
+ * This class is "DumbAware", meaning it can be active while the project is being indexed.
+ */
 final class ToolWindowPanel implements ToolWindowFactory, DumbAware {
-	private static final Logger logger = LoggerFactory.getLogger(ToolWindowPanel.class);
 
+	/**
+	 * Performs additional initialization when the tool window is created.
+	 * Sets the tool window in the {@link ToolboxProject} and updates its icon based on the connection status.
+	 *
+	 * @param toolWindow The tool window instance being initialized.
+	 */
 	@Override
 	public void init(@NotNull ToolWindow toolWindow) {
-		logger.debug("ToolWindowPanel.init");
 		ToolWindowFactory.super.init(toolWindow);
 		ToolboxProject toolboxProject = ToolboxProject.getInstance(toolWindow.getProject());
 		toolboxProject.setToolWindow(toolWindow);
 		toolWindow.setIcon(toolboxProject.isConnected() ? ToolboxIcons.Connected : ToolboxIcons.Disconnected);
 	}
 
+	/**
+	 * Creates the content for the tool window.
+	 * This method initializes the {@link ToolWindowContent} and adds it to the tool window's content manager.
+	 *
+	 * @param project    The current project.
+	 * @param toolWindow The tool window instance.
+	 */
 	@Override
 	public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-		logger.debug("ToolboxPanel.createToolWindowContent");
 		ToolWindowContent toolWindowContent = new ToolWindowContent(toolWindow, project);
 		Content content = ContentFactory.getInstance().createContent(toolWindowContent.getContentPanel(), "", false);
 		toolWindow.getContentManager().addContent(content);
+
+		AnAction settingsAction = new AnAction("Settings", "Open Vault Toolbox Settings", ToolboxIcons.Gear) {
+			@Override
+			public void actionPerformed(@NotNull AnActionEvent e) {
+				ShowSettingsUtil.getInstance().showSettingsDialog(project, AppSettingsConfigurable.class);
+			}
+		};
+		toolWindow.setTitleActions(List.of(settingsAction));
 	}
 
-	@Override
-	public @Nullable Object isApplicableAsync(@NotNull Project project, @NotNull Continuation<? super Boolean> $completion) {
-		logger.debug("ToolboxPanel.isApplicableAsync");
-		//ToolboxProject toolboxProject = ToolboxProject.getInstance(project);
-		//return toolboxProject != null && toolboxProject.isToolboxEnabled();
-		return ToolWindowFactory.super.isApplicableAsync(project, $completion);
-	}
-
-	@Override
-	public @Nullable Icon getIcon() {
-		logger.debug("ToolboxPanel.getIcon");
-		return ToolWindowFactory.super.getIcon();
-	}
-
-	@Override
-	public @Nullable Object manage(@NotNull ToolWindow toolWindow, @NotNull ToolWindowManager toolWindowManager, @NotNull Continuation<? super Unit> $completion) {
-		logger.debug("ToolboxPanel.manage");
-		return ToolWindowFactory.super.manage(toolWindow, toolWindowManager, $completion);
-	}
-
+	/**
+	 * Determines if the tool window should be available based on whether the Toolbox is enabled for the project.
+	 *
+	 * @param project The current project.
+	 * @return true if the tool window should be shown.
+	 */
 	@Override
 	public boolean shouldBeAvailable(@NotNull Project project) {
 		ToolboxProject toolboxProject = ToolboxProject.getInstance(project);
-		return toolboxProject != null & toolboxProject.isToolboxEnabled();
+		return toolboxProject != null && toolboxProject.isToolboxEnabled();
 	}
 
-
+	/**
+	 * Internal class to manage the content components of the Tool Window.
+	 */
 	private static class ToolWindowContent {
 		private final ToolboxProjectPanel contentPanel;
 		private final ToolboxProject toolboxProject;
 		private final ToolWindow toolWindow;
 		private final Project project;
 
+		/**
+		 * Initializes the content panel for the tool window.
+		 *
+		 * @param toolWindow The tool window instance.
+		 * @param project    The current project.
+		 */
 		public ToolWindowContent(ToolWindow toolWindow, Project project) {
-			logger.debug("ToolboxPanel.ToolWindowContent");
 			this.toolWindow = toolWindow;
 			this.project = project;
 			this.toolboxProject = ToolboxProject.getInstance(project);
 			this.contentPanel = new ToolboxProjectPanel(project);
 		}
 
+		/**
+		 * @return The main UI panel for the toolbox.
+		 */
 		public JPanel getContentPanel() {
-			logger.debug("ToolboxPanel.getContentPanel");
 			return contentPanel;
 		}
 	}

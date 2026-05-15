@@ -1,6 +1,6 @@
 #set( $name =  ${Name} + "Processor")
 #set( $javaName =  "")
-	#foreach( $str in $name.split("-") )
+#foreach( $str in $name.split("-") )
 	#set( $str = $str.substring(0,1).toUpperCase() + $str.substring(1) )
 	#set( $javaName = $javaName + $str )
 #end

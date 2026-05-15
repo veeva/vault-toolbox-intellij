@@ -11,62 +11,67 @@ import com.veeva.vault.toolbox.intellij.language.MdlFile;
 import com.veeva.vault.toolbox.intellij.language.psi.MdlTypes;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
+/**
+ * Suggests attribute names that are valid for the most recently typed component
+ * type. The suggestion list is currently a small static map; this can be replaced
+ * with a cached VAPIL lookup once that integration is wired up.
+ */
 class AttributeCompletionProvider extends CompletionProvider<CompletionParameters> {
+
+    private static final Map<String, List<String>> ATTRIBUTES_BY_COMPONENT_TYPE = Map.of(
+            "Object", List.of("label", "description"),
+            "Field", List.of("field_specific_thing"),
+            "Permissionset", List.of("permissionset_specific_thing")
+    );
+
     @Override
     protected void addCompletions(
             @NotNull CompletionParameters parameters,
             @NotNull ProcessingContext processingContext,
             @NotNull CompletionResultSet resultSet) {
-        getAttributeItems(parameters).stream()
-                .forEach(
-                        (componentType) -> {
-                            LookupElementBuilder lookupElementBuilder = LookupElementBuilderFactory
-                                    .create(componentType)
-                                    .withPresentableText(componentType);
-                            resultSet.addElement(new ParenthesisTailTypeDecorator(lookupElementBuilder));
-                        }
-                );
+        for (String attribute : getAttributeItems(parameters)) {
+            LookupElementBuilder lookupElementBuilder = LookupElementBuilderFactory
+                    .create(attribute)
+                    .withPresentableText(attribute);
+            resultSet.addElement(new ParenthesisTailTypeDecorator(lookupElementBuilder));
+        }
     }
 
     private List<String> getAttributeItems(CompletionParameters parameters) {
-        String possibleLastCommandTarget = findPossibleLastCommandTarget(parameters);
-        if (possibleLastCommandTarget != null) {
-            //TODO Populate with cached/stored call to VAPIL.
-            //TODO Filter based on values already provided. Don't recommend again
-            if("Object".equals(possibleLastCommandTarget)) {
-                return Arrays.asList("label", "description");
-            }
-            if("Field".equals(possibleLastCommandTarget)) {
-                return List.of("field_specific_thing");
-            }
-            if("Permissionset".equals(possibleLastCommandTarget)) {
-                return List.of("permissionset_specific_thing");
-            }
+        String lastCommandTarget = findPossibleLastCommandTarget(parameters);
+        if (lastCommandTarget == null) {
+            return Collections.emptyList();
         }
-        return Collections.emptyList();
+        return ATTRIBUTES_BY_COMPONENT_TYPE.getOrDefault(lastCommandTarget, Collections.emptyList());
     }
 
+    /**
+     * Walks backwards from the current caret position through the previous siblings
+     * looking for the most recent {@link MdlTypes#COMPONENT_TYPE} element. While the
+     * file is being authored its elements are still flat children of the file rather
+     * than fully nested, so a positional walk is the most reliable way to associate
+     * an attribute position with its enclosing component type.
+     *
+     * @param parameters the current completion parameters
+     * @return the text of the most recent component type, or {@code null} if none was
+     * found before the caret
+     */
     private String findPossibleLastCommandTarget(CompletionParameters parameters) {
         PsiElement position = parameters.getPosition();
-        parameters.getOriginalFile();
-        if(position.getParent() instanceof MdlFile) {
-            //Basic structure is we are still building out things. So rather then things being nicely organized,
-            // we have all of the elements of the new component type represented as children of the file.
-            // As such, need to just walk up positionally to figure out which component type we are updating.
-            while(position != null) {
-                position = position.getPrevSibling();
-                if(position instanceof TreeElement treeElement && MdlTypes.COMPONENT_TYPE.equals(treeElement.getElementType())) {
-                    //TODO "Look back" for another nearby COMPONENT_TYPE, handle case where there is a Componenttype update
-                    return position.getText();
-                }
+        if (!(position.getParent() instanceof MdlFile)) {
+            return null;
+        }
+        while (position != null) {
+            position = position.getPrevSibling();
+            if (position instanceof TreeElement treeElement
+                    && MdlTypes.COMPONENT_TYPE.equals(treeElement.getElementType())) {
+                return position.getText();
             }
         }
         return null;
     }
-
-
 }

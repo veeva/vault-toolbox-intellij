@@ -18,9 +18,20 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * A panel that uses the IntelliJ Editor framework to display text file content.
+ * Provides a read-only view with syntax highlighting if the project context allows.
+ */
 public class TextDataViewerPanel extends JBPanel<TextDataViewerPanel> {
     private Editor editor;
 
+    /**
+     * Initializes the text data viewer panel.
+     *
+     * @param project          The current IntelliJ project.
+     * @param textFile         The text file to display.
+     * @param parentDisposable Disposable parent used to release the editor instance.
+     */
     public TextDataViewerPanel(Project project, File textFile, Disposable parentDisposable) {
         setLayout(new BorderLayout());
         

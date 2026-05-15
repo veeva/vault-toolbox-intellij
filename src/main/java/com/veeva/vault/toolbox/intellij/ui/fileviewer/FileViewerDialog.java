@@ -13,6 +13,7 @@ import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBPanel;
 import com.intellij.ui.components.JBScrollPane;
+import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,10 +28,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * A dialog for viewing files or directories. 
+ * Supports hierarchical navigation of directories and specialized viewers for different file types.
+ */
 public class FileViewerDialog extends DialogWrapper {
     private final File target;
     private final Project project;
 
+    /**
+     * Initializes the file viewer dialog.
+     *
+     * @param project The current IntelliJ project.
+     * @param target  The file or directory to view.
+     */
     public FileViewerDialog(@Nullable Project project, File target) {
         super(project, true);
         this.project = project;
@@ -61,9 +72,9 @@ public class FileViewerDialog extends DialogWrapper {
 
                 fileList.setCellRenderer(new DefaultListCellRenderer() {
                     @Override
-                    public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                        javax.swing.JLabel label = (javax.swing.JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                        label.setBorder(com.intellij.util.ui.JBUI.Borders.empty(4, 8));
+                    public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                        JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                        label.setBorder(JBUI.Borders.empty(4, 8));
                         return label;
                     }
                 });
@@ -117,7 +128,6 @@ public class FileViewerDialog extends DialogWrapper {
                         if (selectedName != null) {
                             JComponent viewer = viewerCache.computeIfAbsent(selectedName, k -> {
                                 File f = new File(target, selectedName);
-                                // --- FIX: Pass 'true' because this file was clicked inside a list! ---
                                 return createViewerComponent(project, f, getDisposable(), true);
                             });
 
@@ -138,7 +148,6 @@ public class FileViewerDialog extends DialogWrapper {
                 mainPanel.add(new JBLabel("Directory is empty or not readable", SwingConstants.CENTER), BorderLayout.CENTER);
             }
         } else if (target.isFile()) {
-            // --- FIX: Pass 'false' because this is the root window target ---
             mainPanel.add(createViewerComponent(project, target, getDisposable(), false), BorderLayout.CENTER);
         } else {
             mainPanel.add(new JBLabel("Target does not exist or is not readable: " + target.getAbsolutePath()), BorderLayout.NORTH);
@@ -147,13 +156,20 @@ public class FileViewerDialog extends DialogWrapper {
         return mainPanel;
     }
 
-    // --- FIX: Add 'isNested' flag to prevent recursive panel nesting ---
+    /**
+     * Factory method for creating specialized viewer components based on file extensions.
+     *
+     * @param project          The current IntelliJ project.
+     * @param file             The file to view.
+     * @param parentDisposable Disposable parent for resource cleanup.
+     * @param isNested         True if the component is being created inside an existing list-based viewer.
+     * @return A JComponent capable of rendering the file content.
+     */
     public static JComponent createViewerComponent(Project project, File file, Disposable parentDisposable, boolean isNested) {
         String name = file.getName().toLowerCase();
 
         if (name.endsWith(".zip") || name.endsWith(".vpk")) {
             if (isNested) {
-                // Return a simple prompt to open a NEW window instead of nesting!
                 JBPanel<?> panel = new JBPanel<>(new GridBagLayout());
                 JBPanel<?> inner = new JBPanel<>(new BorderLayout(0, 10));
 

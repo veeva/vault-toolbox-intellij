@@ -21,6 +21,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Dialog for creating a new SDK Debug Log Session in Veeva Vault.
+ * Allows users to specify the session name, targeted user, log level, and class filters.
+ */
 public class CreateDebugSessionDialog extends DialogWrapper {
     private final ToolboxProject toolboxProject;
     private JTextField nameField;
@@ -30,14 +34,24 @@ public class CreateDebugSessionDialog extends DialogWrapper {
     private JList<String> classFiltersList;
     private Map<String, String> userMap = new HashMap<>();
 
+    /**
+     * Initializes the dialog with the given project context.
+     *
+     * @param toolboxProject The toolbox project context.
+     */
     public CreateDebugSessionDialog(ToolboxProject toolboxProject) {
-        super(true);
+        super(toolboxProject.getProject(), true);
         this.toolboxProject = toolboxProject;
         init();
         setTitle("Create SDK Debug Log Session");
         loadUsers();
     }
 
+    /**
+     * Creates the central panel of the dialog containing the form fields.
+     *
+     * @return The constructed JComponent for the center panel.
+     */
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
@@ -47,7 +61,6 @@ public class CreateDebugSessionDialog extends DialogWrapper {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Name
         gbc.gridx = 0;
         gbc.gridy = 0;
         panel.add(new JLabel("Name:"), gbc);
@@ -57,7 +70,6 @@ public class CreateDebugSessionDialog extends DialogWrapper {
         nameField = new JTextField();
         panel.add(nameField, gbc);
 
-        // User
         gbc.gridx = 0;
         gbc.gridy = 1;
         gbc.weightx = 0.0;
@@ -68,7 +80,6 @@ public class CreateDebugSessionDialog extends DialogWrapper {
         userComboBox = new JXComboBox();
         panel.add(userComboBox, gbc);
 
-        // Log Level
         gbc.gridx = 0;
         gbc.gridy = 2;
         gbc.weightx = 0.0;
@@ -79,7 +90,6 @@ public class CreateDebugSessionDialog extends DialogWrapper {
         logLevelComboBox = new JXComboBox(new String[]{"ALL", "EXCEPTIONS", "ERROR", "WARNING", "INFO", "DEBUG"});
         panel.add(logLevelComboBox, gbc);
 
-        // Class Filters
         gbc.gridx = 0;
         gbc.gridy = 3;
         gbc.weightx = 0.0;
@@ -126,6 +136,9 @@ public class CreateDebugSessionDialog extends DialogWrapper {
         return panel;
     }
 
+    /**
+     * Loads the list of active users from the Vault in a background thread to populate the user dropdown.
+     */
     private void loadUsers() {
         new Thread(() -> {
             if (toolboxProject.prepareRequest()) {
@@ -146,6 +159,11 @@ public class CreateDebugSessionDialog extends DialogWrapper {
         }).start();
     }
 
+    /**
+     * Validates the form fields before allowing the OK action to proceed.
+     *
+     * @return A ValidationInfo object containing the error message and component, or null if validation passes.
+     */
     @Nullable
     @Override
     protected ValidationInfo doValidate() {
@@ -158,20 +176,30 @@ public class CreateDebugSessionDialog extends DialogWrapper {
         return null;
     }
 
+    /**
+     * Performs the creation of the SDK Debug Session on Vault.
+     * Extracts UI values on the main thread, then executes the API call on a background thread with visual feedback and validation.
+     */
     @Override
     protected void doOKAction() {
         if (getOKAction().isEnabled()) {
             getOKAction().setEnabled(false);
+
+            String sessionName = getSessionName();
+            String userId = getUserId();
+            String logLevel = getLogLevel();
+            Set<String> classFilters = getClassFilters();
+
             new Thread(() -> {
                 try {
                     LogRequest request = toolboxProject.getVaultClient().newRequest(LogRequest.class);
-                    request.setLogLevel(getLogLevel());
-                    Set<String> classFilters = getClassFilters();
+                    request.setLogLevel(logLevel);
+
                     if (!classFilters.isEmpty()) {
                         request.setClassFilters(classFilters);
                     }
 
-                    SdkDebugSessionCreateResponse response = request.createDebugLog(getSessionName(), getUserId());
+                    SdkDebugSessionCreateResponse response = request.createDebugLog(sessionName, userId);
 
                     SwingUtilities.invokeLater(() -> {
                         getOKAction().setEnabled(true);
@@ -179,7 +207,14 @@ public class CreateDebugSessionDialog extends DialogWrapper {
                             JOptionPane.showMessageDialog(this.getContentPane(), "Session created successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
                             super.doOKAction();
                         } else {
-                            String errorMessage = response != null ? response.getResponseMessage() : "Unknown error";
+                            String errorMessage = "Unknown error";
+                            if (response != null) {
+                                if (response.getErrors() != null && !response.getErrors().isEmpty()) {
+                                    errorMessage = response.getErrors().get(0).getMessage();
+                                } else if (response.getResponseMessage() != null) {
+                                    errorMessage = response.getResponseMessage();
+                                }
+                            }
                             JOptionPane.showMessageDialog(this.getContentPane(), "Failed to create session: " + errorMessage, "Error", JOptionPane.ERROR_MESSAGE);
                         }
                     });
@@ -193,15 +228,28 @@ public class CreateDebugSessionDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * Retrieves the session name entered by the user.
+     * * @return The session name.
+     */
     public String getSessionName() {
         return nameField.getText().trim();
     }
 
+    /**
+     * Retrieves the Vault user ID corresponding to the selected username.
+     * * @return The Vault user ID.
+     */
     public String getUserId() {
         String selectedUser = (String) userComboBox.getSelectedItem();
         return userMap.get(selectedUser);
     }
 
+    /**
+     * Maps the human-readable log level selection to the Vault API system name.
+     *
+     * @return The system name of the selected log level.
+     */
     public String getLogLevel() {
         String selected = (String) logLevelComboBox.getSelectedItem();
         if (selected == null) return null;
@@ -216,6 +264,10 @@ public class CreateDebugSessionDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * Retrieves the set of class filters added to the session configuration.
+     * * @return A set of class filter strings.
+     */
     public Set<String> getClassFilters() {
         Set<String> filters = new HashSet<>();
         for (int i = 0; i < classFiltersModel.size(); i++) {

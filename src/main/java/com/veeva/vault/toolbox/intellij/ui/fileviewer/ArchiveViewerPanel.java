@@ -11,6 +11,7 @@ import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBPanel;
 import com.intellij.ui.components.JBScrollPane;
+import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -29,11 +30,22 @@ import java.util.zip.ZipFile;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.Disposable;
 
+/**
+ * A panel that allows browsing and viewing the contents of a compressed archive (ZIP/VPK).
+ * Extracted files are cached temporarily for viewing.
+ */
 public class ArchiveViewerPanel extends JBPanel<ArchiveViewerPanel> {
 
     private final Map<String, File> extractedFilesCache = new HashMap<>();
     private final Map<String, JComponent> viewerCache = new HashMap<>();
 
+    /**
+     * Initializes the archive viewer panel.
+     *
+     * @param project          The current IntelliJ project.
+     * @param archiveFile      The archive file to open.
+     * @param parentDisposable The disposable parent for resource management.
+     */
     public ArchiveViewerPanel(Project project, File archiveFile, Disposable parentDisposable) {
         setLayout(new BorderLayout());
 
@@ -68,9 +80,9 @@ public class ArchiveViewerPanel extends JBPanel<ArchiveViewerPanel> {
             fileList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
             fileList.setCellRenderer(new DefaultListCellRenderer() {
                 @Override
-                public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                    javax.swing.JLabel label = (javax.swing.JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                    label.setBorder(com.intellij.util.ui.JBUI.Borders.empty(4, 8));
+                public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                    JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                    label.setBorder(JBUI.Borders.empty(4, 8));
                     return label;
                 }
             });

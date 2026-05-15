@@ -16,28 +16,34 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
 
+/**
+ * Dialog for selecting and performing actions on Vault VPK packages.
+ * Supports designing new packages, building VPK files, and deploying them to Vault.
+ */
 public class PackageDialog extends DialogWrapper {
     public enum ActionType {
         DESIGN,
         BUILD,
         BUILD_DEPLOY,
-        DEPLOY,
+        DEPLOY
     }
     private static final Logger logger = LoggerFactory.getLogger(PackageDialog.class);
 
-    ToolboxProject toolboxProject;
-    ActionType actionType;
+    private final ToolboxProject toolboxProject;
+    private ActionType actionType;
 
-    JPanel mainPanel = new JPanel(new GridLayout(3, 1));
-    JXComboBox packageFiles = new JXComboBox();
+    private final JPanel mainPanel = new JPanel(new GridLayout(3, 1));
+    private final JXComboBox packageFiles = new JXComboBox();
 
-
+    /**
+     * Initializes a package dialog with default settings.
+     *
+     * @param toolboxProject The toolbox project context.
+     */
     public PackageDialog(ToolboxProject toolboxProject) {
-        super(false);
+        super(toolboxProject.getProject(), false);
         this.toolboxProject = toolboxProject;
         this.setModal(true);
         this.setUndecorated(true);
@@ -45,8 +51,14 @@ public class PackageDialog extends DialogWrapper {
         init();
     }
 
+    /**
+     * Initializes a package dialog for a specific action type.
+     *
+     * @param toolboxProject The toolbox project context.
+     * @param actionType     The type of package action to perform.
+     */
     public PackageDialog(ToolboxProject toolboxProject, ActionType actionType) {
-        super(false);
+        super(toolboxProject.getProject(), false);
         this.toolboxProject = toolboxProject;
         this.actionType = actionType;
         this.setModal(true);
@@ -55,6 +67,9 @@ public class PackageDialog extends DialogWrapper {
         init();
     }
 
+    /**
+     * Data class for entries in the package selection dropdown.
+     */
     public static class PackageItem {
         private final String path;
         private final String name;
@@ -74,6 +89,9 @@ public class PackageDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * @return The absolute path of the currently selected package file.
+     */
     public String getSelectedPath() {
         if (packageFiles.getSelectedItem() != null) {
             PackageItem item = (PackageItem)packageFiles.getSelectedItem();
@@ -84,13 +102,14 @@ public class PackageDialog extends DialogWrapper {
         return null;
     }
 
-
-
     @Override
     protected @Nullable ValidationInfo doValidate() {
         return super.doValidate();
     }
 
+    /**
+     * Performs the selected package action upon dialog confirmation.
+     */
     @Override
     protected void doOKAction() {
         if (toolboxProject != null && packageFiles.getSelectedItem() != null) {
@@ -100,12 +119,10 @@ public class PackageDialog extends DialogWrapper {
                     if (path != null) {
                         DesignPackageDialog designPackageDialog = new DesignPackageDialog(toolboxProject, new File(getSelectedPath()));
                         designPackageDialog.show();
-                    }
-                    else {
+                    } else {
                         DesignPackageDialog designPackageDialog = new DesignPackageDialog(toolboxProject, null);
                         designPackageDialog.show();
                     }
-
                     break;
                 }
                 case BUILD: {
@@ -138,8 +155,7 @@ public class PackageDialog extends DialogWrapper {
                             PackageItem packageManifestItem = new PackageItem(file.getPath(), file.getName());
                             packageFiles.addItem(packageManifestItem);
                         }
-                    }
-                    else {
+                    } else {
                         if (file.getName().endsWith(".json")) {
                             PackageItem packageManifestItem = new PackageItem(file.getPath(), file.getName());
                             packageFiles.addItem(packageManifestItem);
@@ -149,29 +165,19 @@ public class PackageDialog extends DialogWrapper {
             }
         }
 
-
         if (actionType.equals(ActionType.DESIGN)) {
             PackageItem packageManifestItem = new PackageItem(null, "+ new package");
             packageFiles.addItem(packageManifestItem);
-            //mainPanel.add(new JButton("Design new package"));
 
             if (packageFiles.getItemCount() > 0) {
-                packageFiles.addActionListener (new ActionListener() {
-                    public void actionPerformed(ActionEvent e) {
-                        toggleEditButton();
-                    }
-                });
-
+                packageFiles.addActionListener(e -> toggleEditButton());
             }
         }
-
-
 
         if (packageFiles.getItemCount() > 0) {
             mainPanel.add(new JLabel("  Select Package:"));
             mainPanel.add(packageFiles);
-        }
-        else {
+        } else {
             if (!actionType.equals(ActionType.DESIGN)) {
                 mainPanel.add(new JLabel("No packages found"));
             }
@@ -180,22 +186,28 @@ public class PackageDialog extends DialogWrapper {
         return mainPanel;
     }
 
+    /**
+     * Updates the OK button text based on whether a new package is being created or an existing one edited.
+     */
     private void toggleEditButton() {
         if (getSelectedPath() == null) {
             setOKButtonText("Create");
-        }
-        else {
+        } else {
             setOKButtonText("Edit");
         }
     }
 
+    /**
+     * Configures the dialog actions based on the current action type and package availability.
+     *
+     * @return The array of actions for the dialog.
+     */
     @NotNull
     @Override
     protected Action[] createActions() {
         super.createDefaultActions();
 
         if (packageFiles.getItemCount() > 0) {
-            // return right hand side action buttons
             switch (actionType) {
                 case DESIGN: {
                     toggleEditButton();
@@ -214,43 +226,51 @@ public class PackageDialog extends DialogWrapper {
                     break;
                 }
             }
-
             return new Action[] { getOKAction(), getCancelAction() };
-        }
-        else {
+        } else {
             return new Action[] { getCancelAction() };
         }
     }
 
+    /**
+     * Returns an empty set of actions for the left side of the dialog footer.
+     *
+     * @return An empty array of Actions.
+     */
     @NotNull
+    @Override
     protected Action[] createLeftSideActions() {
-        // return left hand side action buttons
         return new Action[] {  };
     }
+
+    /**
+     * Initiates a build task for the selected package.
+     *
+     * @param deploy true to automatically deploy after building.
+     */
     private void buildPackage(boolean deploy) {
         try {
-
             ApplicationManager.getApplication().invokeLater(() -> {
                 VirtualFile virtualFile = VfsUtil.findFileByIoFile(new File(getSelectedPath()), true);
                 BuildVpkTask task = new BuildVpkTask(toolboxProject.getProject(), virtualFile, deploy);
                 task.queue();
             });
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error(e.getMessage(), e);
         }
     }
 
+    /**
+     * Initiates a deployment task for the selected package.
+     */
     private void deployPackage() {
         try {
-
             ApplicationManager.getApplication().invokeLater(() -> {
                 VirtualFile virtualFile = VfsUtil.findFileByIoFile(new File(getSelectedPath()), true);
                 DeployVpkTask task = new DeployVpkTask(toolboxProject.getProject(), virtualFile);
                 task.queue();
             });
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             logger.error(e.getMessage(), e);
         }
     }

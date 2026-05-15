@@ -9,16 +9,24 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Unlinks the active IntelliJ project from its Vault Toolbox configuration,
+ * removing toolbox-specific behavior from the project.
+ */
 public class UnlinkProjectAction extends ToolboxAction {
 	private static final Logger logger = LoggerFactory.getLogger(UnlinkProjectAction.class);
 
+	/**
+	 * Queues an {@link UnlinkProjectTask} when the project is currently linked.
+	 *
+	 * @param anActionEvent the action event provided by the IntelliJ platform
+	 */
 	@Override
 	public void actionPerformed(AnActionEvent anActionEvent) {
 		super.actionPerformed(anActionEvent);
 		try {
 			if (toolboxProject != null && toolboxProject.isToolboxEnabled()) {
-				UnlinkProjectTask task = new UnlinkProjectTask(toolboxProject.getProject());
-				task.queue();
+				new UnlinkProjectTask(toolboxProject.getProject()).queue();
 			}
 		}
 		catch (Exception e) {
@@ -26,6 +34,12 @@ public class UnlinkProjectAction extends ToolboxAction {
 		}
 	}
 
+	/**
+	 * Shows the action only when the project is linked and the project root is
+	 * the current selection.
+	 *
+	 * @param anActionEvent the action event provided by the IntelliJ platform
+	 */
 	@Override
 	public void update(@NotNull AnActionEvent anActionEvent) {
 		super.update(anActionEvent);
@@ -37,7 +51,6 @@ public class UnlinkProjectAction extends ToolboxAction {
 					isVisible = true;
 				}
 			}
-
 			anActionEvent.getPresentation().setEnabled(isEnabled);
 			anActionEvent.getPresentation().setVisible(isVisible);
 		}

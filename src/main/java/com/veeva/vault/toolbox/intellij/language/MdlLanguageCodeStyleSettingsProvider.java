@@ -5,6 +5,11 @@ import com.intellij.psi.codeStyle.CodeStyleSettingsCustomizable;
 import com.intellij.psi.codeStyle.LanguageCodeStyleSettingsProvider;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Registers MDL with the IntelliJ code style settings UI, exposing the spacing and
+ * blank-line options that are meaningful for the language and providing the sample
+ * source used to preview those settings.
+ */
 final class MdlLanguageCodeStyleSettingsProvider extends LanguageCodeStyleSettingsProvider {
 
   @NotNull

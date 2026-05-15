@@ -4,8 +4,11 @@ import com.intellij.openapi.fileTypes.LanguageFileType;
 import icons.ToolboxIcons;
 import org.jetbrains.annotations.NotNull;
 
-import javax.swing.*;
+import javax.swing.Icon;
 
+/**
+ * File type registration for the {@code .vpk} extension.
+ */
 public final class VpkFileType extends LanguageFileType {
 
     public static final VpkFileType INSTANCE = new VpkFileType();
@@ -34,8 +37,6 @@ public final class VpkFileType extends LanguageFileType {
 
     @Override
     public Icon getIcon() {
-        //return AllIcons.Nodes.UpFolder;
         return ToolboxIcons.Vpk;
     }
-
 }

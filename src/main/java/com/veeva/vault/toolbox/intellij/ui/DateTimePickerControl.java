@@ -8,6 +8,7 @@ import com.intellij.ui.JBColor;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBPanel;
 import com.intellij.util.ui.JBUI;
+import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
@@ -17,7 +18,12 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.function.Consumer;
 
+/**
+ * A composite UI control providing a date picker (via popup calendar) and a time selection dropdown.
+ * Enforces minimum and maximum date/time boundaries.
+ */
 public class DateTimePickerControl extends JBPanel<DateTimePickerControl> {
 
 	private final JTextField dateField;
@@ -29,12 +35,17 @@ public class DateTimePickerControl extends JBPanel<DateTimePickerControl> {
 	private final LocalDateTime minDateTime;
 	private final LocalDateTime maxDateTime;
 
+	/**
+	 * Initializes the date time picker with optional constraints.
+	 *
+	 * @param minDateTime Minimum allowed date and time.
+	 * @param maxDateTime Maximum allowed date and time.
+	 */
 	public DateTimePickerControl(LocalDateTime minDateTime, LocalDateTime maxDateTime) {
 		super(new GridBagLayout());
 		this.minDateTime = minDateTime;
 		this.maxDateTime = maxDateTime;
 
-		// Initialize selectedDate to today, or clamp it to the min/max bounds if today is invalid
 		LocalDate today = LocalDate.now();
 		if (minDateTime != null && today.isBefore(minDateTime.toLocalDate())) {
 			this.selectedDate = minDateTime.toLocalDate();
@@ -73,10 +84,16 @@ public class DateTimePickerControl extends JBPanel<DateTimePickerControl> {
 		add(timeComboBox, gbc);
 	}
 
+	/**
+	 * Updates the text field with the current selected date formatted as ISO 8601.
+	 */
 	private void updateDateField() {
 		dateField.setText(selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE));
 	}
 
+	/**
+	 * Regenerates the time selection items based on the currently selected date and boundary constraints.
+	 */
 	private void updateTimeDropdown() {
 		String previouslySelected = (String) timeComboBox.getSelectedItem();
 		timeComboBox.removeAllItems();
@@ -106,7 +123,9 @@ public class DateTimePickerControl extends JBPanel<DateTimePickerControl> {
 	}
 
 	/**
-	 * Forcibly sets the UI to a specific date and time chunk.
+	 * Forcibly sets the UI to a specific date and time, rounding to the nearest 30-minute block.
+	 *
+	 * @param dateTime The date time to set.
 	 */
 	public void setDateTime(LocalDateTime dateTime) {
 		if (dateTime == null) return;
@@ -118,33 +137,53 @@ public class DateTimePickerControl extends JBPanel<DateTimePickerControl> {
 		timeComboBox.setSelectedItem(String.format("%02d:%02d", dateTime.getHour(), minute));
 	}
 
-	/** Toggles the visibility of the time selection components */
+	/**
+	 * Toggles the visibility of the time-related components.
+	 *
+	 * @param visible true to show, false to hide.
+	 */
 	public void setTimeVisible(boolean visible) {
 		timeLabel.setVisible(visible);
 		timeComboBox.setVisible(visible);
 	}
 
+	/**
+	 * Registers a listener that triggers when either the date or time selection changes.
+	 *
+	 * @param listener The callback to execute.
+	 */
 	public void addChangeListener(Runnable listener) {
 		dateField.getDocument().addDocumentListener(new DocumentAdapter() {
 			@Override
-			protected void textChanged(DocumentEvent e) { listener.run(); }
+			protected void textChanged(@NotNull DocumentEvent e) { listener.run(); }
 		});
 		timeComboBox.addActionListener(e -> listener.run());
 	}
 
+	/**
+	 * @return The formatted date string (YYYY-MM-DD).
+	 */
 	public String getSelectedDateString() {
 		return dateField.getText();
 	}
 
+	/**
+	 * @return The formatted time string (HH:MM).
+	 */
 	public String getSelectedTimeString() {
 		return (String) timeComboBox.getSelectedItem();
 	}
 
-	/** Returns just the selected date, ignoring the time dropdown entirely */
+	/**
+	 * @return The currently selected LocalDate.
+	 */
 	public LocalDate getSelectedDate() {
 		return this.selectedDate;
 	}
 
+	/**
+	 * @return The currently selected LocalDateTime combining both date and time selections.
+	 */
 	public LocalDateTime getSelectedDateTime() {
 		if (timeComboBox.getSelectedItem() == null) {
 			return LocalDateTime.of(selectedDate, LocalTime.MIDNIGHT);
@@ -153,6 +192,11 @@ public class DateTimePickerControl extends JBPanel<DateTimePickerControl> {
 		return LocalDateTime.of(selectedDate, time);
 	}
 
+	/**
+	 * Displays the calendar selection popup underneath the specified component.
+	 *
+	 * @param owner The anchor component.
+	 */
 	private void showCalendarPopup(Component owner) {
 		if (currentPopup != null && !currentPopup.isDisposed()) currentPopup.cancel();
 
@@ -172,12 +216,15 @@ public class DateTimePickerControl extends JBPanel<DateTimePickerControl> {
 		currentPopup.showUnderneathOf(owner);
 	}
 
+	/**
+	 * Inner component providing a interactive grid-based month calendar view.
+	 */
 	private static class CalendarView extends JBPanel<CalendarView> {
 		private YearMonth currentDisplayedMonth;
 		private final JPanel gridPanel;
 		private final JLabel monthLabel;
 
-		public CalendarView(LocalDate initialDate, LocalDateTime minDateTime, LocalDateTime maxDateTime, java.util.function.Consumer<LocalDate> onDateSelected) {
+		public CalendarView(LocalDate initialDate, LocalDateTime minDateTime, LocalDateTime maxDateTime, Consumer<LocalDate> onDateSelected) {
 			super(new BorderLayout());
 			this.currentDisplayedMonth = YearMonth.from(initialDate);
 			this.setBorder(JBUI.Borders.empty(10));
@@ -209,7 +256,10 @@ public class DateTimePickerControl extends JBPanel<DateTimePickerControl> {
 			updateCalendar(minDateTime, maxDateTime, onDateSelected);
 		}
 
-		private void updateCalendar(LocalDateTime minDateTime, LocalDateTime maxDateTime, java.util.function.Consumer<LocalDate> onDateSelected) {
+		/**
+		 * Refreshes the calendar grid for the current month view, handling button states and events.
+		 */
+		private void updateCalendar(LocalDateTime minDateTime, LocalDateTime maxDateTime, Consumer<LocalDate> onDateSelected) {
 			gridPanel.removeAll();
 			monthLabel.setText(currentDisplayedMonth.getMonth().name() + " " + currentDisplayedMonth.getYear());
 

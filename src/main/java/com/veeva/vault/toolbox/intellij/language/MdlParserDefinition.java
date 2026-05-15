@@ -14,6 +14,10 @@ import com.veeva.vault.toolbox.intellij.language.parser.MdlParser;
 import com.veeva.vault.toolbox.intellij.language.psi.MdlTypes;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Wires the lexer, parser, and PSI factories for MDL together so the IntelliJ
+ * platform can build a syntax tree from MDL source files.
+ */
 public class MdlParserDefinition implements ParserDefinition {
     public static final IFileElementType FILE = new IFileElementType(MdlLanguage.INSTANCE);
 

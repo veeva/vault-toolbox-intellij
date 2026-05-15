@@ -5,80 +5,129 @@ import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
 import java.nio.file.FileSystem;
-import java.util.*;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-public class FileIO {
+/**
+ * Utility methods for file system operations including reading, writing,
+ * directory traversal, and ZIP archive handling.
+ */
+public final class FileIO {
+
 	private static final Logger logger = LoggerFactory.getLogger(FileIO.class);
 
+	private static final int BUFFER_SIZE = 1024;
+
+	private FileIO() {
+	}
+
+	/**
+	 * Returns {@code true} if the given file's name ends with any of the supplied
+	 * extensions. The wildcard tokens {@code "*"} and {@code "*.*"} match any file.
+	 *
+	 * @param file the file to test
+	 * @param fileExtensions the set of extensions to match (for example {@code ".mdl"} or {@code "*.vpk"})
+	 * @return {@code true} if the file matches any extension; {@code false} otherwise
+	 */
 	public static boolean endsWith(File file, Set<String> fileExtensions) {
-		if (file != null && fileExtensions != null && !fileExtensions.isEmpty()) {
-			for (String fileExtension : fileExtensions) {
-				fileExtension = fileExtension.replace("*.", ".");
-
-				if (file.getName().toLowerCase().endsWith(fileExtension)) {
-					return true;
-				}
-				else if (fileExtension.equals("*") || fileExtension.equals("*.*")) {
-					return true;
-				}
+		if (file == null || fileExtensions == null || fileExtensions.isEmpty()) {
+			return false;
+		}
+		for (String fileExtension : fileExtensions) {
+			if (endsWith(file, fileExtension)) {
+				return true;
 			}
 		}
 		return false;
 	}
 
+	/**
+	 * Returns {@code true} if the given file's name ends with the supplied
+	 * extension. The wildcard tokens {@code "*"} and {@code "*.*"} match any file.
+	 *
+	 * @param file the file to test
+	 * @param fileExtension the extension to match (for example {@code ".mdl"} or {@code "*.vpk"})
+	 * @return {@code true} if the file matches the extension; {@code false} otherwise
+	 */
 	public static boolean endsWith(File file, String fileExtension) {
-		if (file != null && fileExtension != null) {
-			fileExtension = fileExtension.replace("*.", ".");
-
-			if (file.getName().toLowerCase().endsWith(fileExtension)) {
-				return true;
-			}
-			else if (fileExtension.equals("*") || fileExtension.equals("*.*")) {
-				return true;
-			}
+		if (file == null || fileExtension == null) {
+			return false;
 		}
-		return false;
+		if (fileExtension.equals("*") || fileExtension.equals("*.*")) {
+			return true;
+		}
+		String normalized = fileExtension.replace("*.", ".");
+		return file.getName().toLowerCase().endsWith(normalized);
 	}
 
+	/**
+	 * Recursively walks the given path and returns the absolute paths of files
+	 * matching any of the provided extensions.
+	 *
+	 * @param sourceFile the directory or file to walk
+	 * @param fileExtensions the extensions to filter by, or {@code null} to include all paths
+	 * @return matching file paths, or {@code null} if an I/O error occurred
+	 */
 	public static List<String> getFileNames(File sourceFile, Set<String> fileExtensions) {
 		try (Stream<Path> walk = Files.walk(sourceFile.toPath())) {
-
-			return walk.map(x -> x.toString())
-					.filter(file -> (fileExtensions == null
-							|| endsWith(new File(file), fileExtensions)))
+			return walk.map(Path::toString)
+					.filter(file -> fileExtensions == null || endsWith(new File(file), fileExtensions))
 					.collect(Collectors.toList());
-
 		} catch (IOException e) {
 			logger.error(e.getMessage());
-			e.printStackTrace();
 			return null;
 		}
 	}
 
-
+	/**
+	 * Recursively walks the given path and returns the absolute paths of files
+	 * matching the provided extension.
+	 *
+	 * @param sourceFile the directory or file to walk
+	 * @param extension the extension to filter by
+	 * @return matching file paths, or {@code null} if an I/O error occurred
+	 */
 	public static List<String> getFileNames(File sourceFile, String extension) {
 		try (Stream<Path> walk = Files.walk(sourceFile.toPath())) {
-
-			return walk.map(x -> x.toString())
-					.filter(file -> (endsWith(new File(file), extension)))
+			return walk.map(Path::toString)
+					.filter(file -> endsWith(new File(file), extension))
 					.collect(Collectors.toList());
-
 		} catch (IOException e) {
 			logger.error(e.getMessage());
 			return null;
 		}
 	}
 
+	/**
+	 * Returns a sorted list of files matching the provided extensions. If
+	 * {@code source} is a single file, it is returned as the only element.
+	 *
+	 * @param source the directory or file to inspect
+	 * @param fileExtensions the extensions to filter by, or {@code null} to include all
+	 * @return matching files, or {@code null} if an error occurred
+	 */
 	public static List<File> getFiles(File source, Set<String> fileExtensions) {
 		try {
 			List<File> files = new ArrayList<>();
@@ -92,15 +141,21 @@ public class FileIO {
 			else {
 				files.add(source);
 			}
-
 			return files;
 		} catch (Exception e) {
 			logger.error(e.getMessage());
-			e.printStackTrace();
 			return null;
 		}
 	}
 
+	/**
+	 * Returns a sorted list of files matching the provided extension. If
+	 * {@code source} is a single file, it is returned as the only element.
+	 *
+	 * @param source the directory or file to inspect
+	 * @param extension the extension to filter by
+	 * @return matching files, or {@code null} if an error occurred
+	 */
 	public static List<File> getFiles(File source, String extension) {
 		try {
 			List<File> files = new ArrayList<>();
@@ -114,7 +169,6 @@ public class FileIO {
 			else {
 				files.add(source);
 			}
-
 			return files;
 		} catch (Exception e) {
 			logger.error(e.getMessage());
@@ -122,231 +176,269 @@ public class FileIO {
 		}
 	}
 
+	/**
+	 * Reads the given resource using the provided class loader.
+	 *
+	 * @param resourcePath the resource path
+	 * @param classLoader the class loader used to locate the resource
+	 * @return the resource bytes, or {@code null} if the resource cannot be located or read
+	 * @throws IOException if an I/O error occurs reading the stream
+	 */
 	public static byte[] getResourceContent(String resourcePath, ClassLoader classLoader) throws IOException {
-		byte[] resourceContent = null;
-		if (classLoader != null) {
-			URL resourceUrl = classLoader.getResource(resourcePath);
-			if (resourceUrl != null) {
-				logger.debug("URL: " + resourcePath);
-				try {
-					InputStream sourceStream = classLoader.getResourceAsStream(resourcePath);
-					resourceContent = IOUtils.toByteArray(sourceStream);
-				}
-				catch (Exception e) {
-					logger.error(e.getMessage());
-					e.printStackTrace();
-				}
-			}
-			else {
-				logger.debug("NOURL: " + resourcePath);
-			}
-		}
-		else {
+		if (classLoader == null) {
 			logger.debug("NOCLASSLOADER: " + resourcePath);
+			return null;
 		}
-
-		return resourceContent;
+		try (InputStream stream = classLoader.getResourceAsStream(resourcePath)) {
+			if (stream == null) {
+				logger.debug("NOURL: " + resourcePath);
+				return null;
+			}
+			logger.debug("URL: " + resourcePath);
+			return IOUtils.toByteArray(stream);
+		} catch (Exception e) {
+			logger.error(e.getMessage());
+			return null;
+		}
 	}
 
+	/**
+	 * Reads the given resource using the system class loader.
+	 *
+	 * @param resourcePath the resource path
+	 * @return the resource bytes, or {@code null} if the resource cannot be located or read
+	 * @throws IOException if an I/O error occurs reading the stream
+	 */
 	public static byte[] getResourceContent(String resourcePath) throws IOException {
 		return getResourceContent(resourcePath, ClassLoader.getSystemClassLoader());
 	}
 
+	/**
+	 * Creates the given directory and any missing parent directories. Has no
+	 * effect if the path already exists or refers to an existing file.
+	 *
+	 * @param directory the directory to create
+	 */
 	public static void makeDirectories(File directory) {
 		try {
 			if (directory != null && !directory.isFile() && !directory.exists()) {
 				logger.debug("MKDIR: " + directory);
 				directory.mkdirs();
 			}
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			logger.error(e.getMessage());
-			e.printStackTrace();
 		}
-
 	}
 
+	/**
+	 * Extracts the contents of the given ZIP file into the supplied output
+	 * directory. Entries that resolve outside the output directory are skipped
+	 * to guard against path traversal.
+	 *
+	 * @param zipFile the ZIP file to extract
+	 * @param outputDirectory the directory to extract into
+	 */
 	public static void unzipFiles(File zipFile, File outputDirectory) {
-		try {
-			byte[] buffer = new byte[1024];
-			ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile.getAbsolutePath()));
+		try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile.getAbsolutePath()))) {
+			byte[] buffer = new byte[BUFFER_SIZE];
+			Path outputRoot = outputDirectory.toPath().normalize();
 			ZipEntry zipEntry = zis.getNextEntry();
 			while (zipEntry != null) {
 				File newFile = new File(outputDirectory, zipEntry.getName());
-				String parentDirPath = newFile.getParent();
-				File parentDir = new File(parentDirPath);
-				makeDirectories(parentDir);
+				if (!newFile.toPath().normalize().startsWith(outputRoot)) {
+					logger.warn("SKIP: entry outside target directory: " + zipEntry.getName());
+					zipEntry = zis.getNextEntry();
+					continue;
+				}
+				makeDirectories(newFile.getParentFile());
 
 				if (!zipEntry.isDirectory()) {
-					FileOutputStream fos = new FileOutputStream(newFile);
-					int len;
-					while ((len = zis.read(buffer)) > 0) {
-						fos.write(buffer, 0, len);
+					try (FileOutputStream fos = new FileOutputStream(newFile)) {
+						int len;
+						while ((len = zis.read(buffer)) > 0) {
+							fos.write(buffer, 0, len);
+						}
 					}
-					fos.close();
 				}
 				logger.info("UNZIP: " + newFile.getAbsolutePath());
 				zipEntry = zis.getNextEntry();
 			}
 			zis.closeEntry();
-			zis.close();
 		} catch (IOException e) {
 			logger.error(e.getMessage());
-			e.printStackTrace();
 		}
 	}
 
+	/**
+	 * Adds the given files to a ZIP archive at {@code zipFile}.
+	 *
+	 * @param zipFile the destination archive
+	 * @param files the files to add
+	 * @param relativeFile if non-null, files are stored relative to this directory inside the archive
+	 * @param pathInZip optional prefix path inside the archive
+	 * @param appendToFile when {@code true}, append to an existing archive; when {@code false}, the existing archive is replaced
+	 * @throws Exception if the archive cannot be created or written to
+	 */
 	public static void zipFiles(File zipFile,
 								List<File> files,
 								File relativeFile,
 								String pathInZip,
 								boolean appendToFile) throws Exception {
-		if (files != null && !files.isEmpty()) {
-			makeDirectories(zipFile.getParentFile());
-			if (!appendToFile && zipFile.exists()) {
-				logger.warn("RECREATE: " + zipFile.getAbsolutePath());
-				zipFile.delete();
-			}
-			else if (!zipFile.exists()) {
-				logger.warn("CREATE: " + zipFile.getAbsolutePath());
-			}
-			else {
-				logger.warn("APPEND: " + zipFile.getAbsolutePath());
-			}
+		if (files == null || files.isEmpty()) {
+			return;
+		}
+		makeDirectories(zipFile.getParentFile());
+		if (!appendToFile && zipFile.exists()) {
+			logger.warn("RECREATE: " + zipFile.getAbsolutePath());
+			zipFile.delete();
+		}
+		else if (!zipFile.exists()) {
+			logger.warn("CREATE: " + zipFile.getAbsolutePath());
+		}
+		else {
+			logger.warn("APPEND: " + zipFile.getAbsolutePath());
+		}
 
-			Map<String, Object> env = new HashMap<>();
-			env.put("create", "true");
-			env.put("useTempFile", Boolean.TRUE.toString());
-			URI uri = URI.create("jar:" + zipFile.toPath().toUri());
-			try (FileSystem zipfs = FileSystems.newFileSystem(uri, env)) {
-				for (File inputFile : files) {
-					logger.info("ZIP: " + inputFile.getAbsolutePath());
+		Map<String, Object> env = new HashMap<>();
+		env.put("create", "true");
+		env.put("useTempFile", Boolean.TRUE.toString());
+		URI uri = URI.create("jar:" + zipFile.toPath().toUri());
+		try (FileSystem zipfs = FileSystems.newFileSystem(uri, env)) {
+			for (File inputFile : files) {
+				logger.info("ZIP: " + inputFile.getAbsolutePath());
 
-					StringBuilder zipFilePath = new StringBuilder();
-					if (pathInZip != null) {
-						Path zipDirectory = zipfs.getPath(pathInZip);
+				StringBuilder zipFilePath = new StringBuilder();
+				if (pathInZip != null) {
+					Path zipDirectory = zipfs.getPath(pathInZip);
+					if (Files.notExists(zipDirectory)) {
+						Files.createDirectories(zipDirectory);
+					}
+					zipFilePath.append(pathInZip).append("/");
+				}
+
+				if (relativeFile != null && inputFile.getParentFile().compareTo(relativeFile) != 0) {
+					String zipEntryPath = zipFile.getParentFile().getAbsolutePath();
+					String sourceParentPath = inputFile.getParentFile().getAbsolutePath();
+					if (!relativeFile.getAbsolutePath().equals(sourceParentPath)) {
+						zipEntryPath = inputFile.getAbsolutePath()
+								.substring(relativeFile.getAbsolutePath().length())
+								.replaceAll("\\\\", "/");
+					}
+					Path zipDirectory = zipfs.getPath(zipEntryPath).getParent();
+					if (zipDirectory != null) {
 						if (Files.notExists(zipDirectory)) {
 							Files.createDirectories(zipDirectory);
 						}
-						zipFilePath.append(pathInZip + "/");
+						zipFilePath.append(zipDirectory).append("/");
 					}
-
-					if (relativeFile != null) {
-						if (inputFile.getParentFile().compareTo(relativeFile) != 0) {
-							String zipEntryPath = zipFile.getParentFile().getAbsolutePath();
-							String sourceParentPath = inputFile.getParentFile().getAbsolutePath();
-							if (!relativeFile.getAbsolutePath().equals(sourceParentPath)) {
-								zipEntryPath = inputFile.getAbsolutePath().substring(relativeFile.getAbsolutePath().length()).replaceAll("\\\\", "/");
-							}
-							Path zipDirectory = zipfs.getPath(zipEntryPath).getParent();
-							if (zipDirectory != null) {
-								if (Files.notExists(zipDirectory)) {
-									Files.createDirectories(zipDirectory);
-								}
-								zipFilePath.append(zipDirectory + "/");
-							}
-						}
-					}
-					zipFilePath.append(inputFile.getName());
-					Path pathInZipfile = zipfs.getPath(zipFilePath.toString());
-					// copy a file into the zip file
-					Files.copy(inputFile.toPath(), pathInZipfile,
-							StandardCopyOption.REPLACE_EXISTING);
 				}
+				zipFilePath.append(inputFile.getName());
+				Path pathInZipfile = zipfs.getPath(zipFilePath.toString());
+				Files.copy(inputFile.toPath(), pathInZipfile, StandardCopyOption.REPLACE_EXISTING);
 			}
 		}
 	}
 
+	/**
+	 * Writes the given text to a file using UTF-8 encoding. Parent directories
+	 * are created as needed.
+	 *
+	 * @param outputFile the destination file
+	 * @param fileContent the text to write
+	 */
 	public static void writeFileContent(File outputFile, String fileContent) {
-		try {
-			writeFileContent(outputFile, fileContent.getBytes(StandardCharsets.UTF_8));
+		if (fileContent == null) {
+			return;
 		}
-		catch (Exception e) {
-			logger.error(e.getMessage());
-			e.printStackTrace();
-		}
-
+		writeFileContent(outputFile, fileContent.getBytes(StandardCharsets.UTF_8));
 	}
 
+	/**
+	 * Writes the given bytes to a file. Parent directories are created as needed.
+	 *
+	 * @param outputFile the destination file
+	 * @param fileContent the bytes to write
+	 */
 	public static void writeFileContent(File outputFile, byte[] fileContent) {
+		if (outputFile == null || fileContent == null) {
+			return;
+		}
 		try {
-			if (outputFile != null && fileContent != null) {
-				makeDirectories(outputFile.getParentFile());
-				Files.write(outputFile.toPath(), fileContent);
-			}
-		}
-		catch (Exception e) {
+			makeDirectories(outputFile.getParentFile());
+			Files.write(outputFile.toPath(), fileContent);
+		} catch (Exception e) {
 			logger.error(e.getMessage());
-			e.printStackTrace();
 		}
-
 	}
 
+	/**
+	 * Resolves the given path against the current working directory and returns
+	 * the normalized absolute path.
+	 *
+	 * @param maybeRelative a path that may be relative
+	 * @return the normalized absolute path
+	 */
 	public static String toAbsolutePath(String maybeRelative) {
 		Path path = Paths.get(maybeRelative);
-		Path effectivePath = path;
 		Path base = Paths.get("");
-		effectivePath = base.resolve(path).toAbsolutePath();
-		return effectivePath.normalize().toString();
+		return base.resolve(path).toAbsolutePath().normalize().toString();
 	}
 
-	public static boolean checkApiLogFileNameFormat(String fileName) {
-		String format = "^[0-9]+-[a-zA-Z]+-\\d{4}-\\d{2}-\\d{2}$";
-
-		return false;
-	}
-
-	public static  int getCsvRowCount(File csvFile) {
-		try {
+	/**
+	 * Counts the number of rows in the given CSV file.
+	 *
+	 * @param csvFile the CSV file to count
+	 * @return the number of rows, or {@code 0} if the file cannot be read
+	 */
+	public static int getCsvRowCount(File csvFile) {
+		try (CSVReader csvReader = new CSVReader(new FileReader(csvFile))) {
 			int rowCount = 0;
-			CSVReader csvReader = new CSVReader(new FileReader(csvFile));
-			String[] values = null;
-			while ((values = csvReader.readNext()) != null) {
-				rowCount = rowCount + 1;
+			while (csvReader.readNext() != null) {
+				rowCount++;
 			}
 			return rowCount;
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			logger.error(e.getMessage());
-			e.printStackTrace();
-			return  0;
+			return 0;
 		}
 	}
 
+	/**
+	 * Reads the entire contents of the given file into a byte array.
+	 *
+	 * @param inputFile the file to read
+	 * @return the file contents, or {@code null} if the file is missing or cannot be read
+	 */
 	public static byte[] getFileBytes(File inputFile) {
-		if (inputFile != null) {
-			if (inputFile.exists()) {
-				try {
-					return Files.readAllBytes(inputFile.toPath());
-				}
-				catch (Exception e) {
-					return null;
-				}
-			}
-		}
-		return null;
-	}
-
-	public static String getFileContent(File inputFile) {
-		if (inputFile != null) {
-			if (inputFile.exists()) {
-				try {
-					return new String(getFileBytes(inputFile), StandardCharsets.UTF_8);
-				}
-				catch (Exception e) {
-					logger.error(e.getMessage());
-					return null;
-				}
-			}
-		}
-		return null;
-	}
-
-	public static String getFileContent(String inputFilePath) {
-		if (inputFilePath != null) {
-			return getFileContent(new File(inputFilePath));
-		}
-		else
+		if (inputFile == null || !inputFile.exists()) {
 			return null;
+		}
+		try {
+			return Files.readAllBytes(inputFile.toPath());
+		} catch (IOException e) {
+			logger.error(e.getMessage());
+			return null;
+		}
+	}
+
+	/**
+	 * Reads the entire contents of the given file as a UTF-8 string.
+	 *
+	 * @param inputFile the file to read
+	 * @return the file contents, or {@code null} if the file is missing or cannot be read
+	 */
+	public static String getFileContent(File inputFile) {
+		byte[] bytes = getFileBytes(inputFile);
+		return bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
+	}
+
+	/**
+	 * Reads the entire contents of the file at the given path as a UTF-8 string.
+	 *
+	 * @param inputFilePath the path of the file to read
+	 * @return the file contents, or {@code null} if the path is null or the file cannot be read
+	 */
+	public static String getFileContent(String inputFilePath) {
+		return inputFilePath == null ? null : getFileContent(new File(inputFilePath));
 	}
 }

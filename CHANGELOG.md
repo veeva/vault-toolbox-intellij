@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [26.1.1] - 2026-05-08
+
+- Added support for saving multiple credentials.
+- Upgraded `VAPIL` dependency to version `26.1.0`.
+- Upgraded underlying dependencies (`Jackson`, `JSON-Java`, `OpenCSV`, `SQLite JDBC`, `JFreeChart`) to their latest stable patches.
+- Added support for extracting SDKs and dropping SDK and MDL from Vault.
+- Added safety checks for Production Vaults during deploy and drop operations.
+- Added the ability to cancel Configuration Report downloads.
+- Improved Developer Logs with fixes for duplicate entries, concurrency issues, and handling of inactive SDK debug logs.
+- Enhanced UI with updated icons, improved spacing, and automatic highlighting of downloaded log folders.
+- General bug fixes, performance improvements, and resolution of deprecated methods.
+
 ## [26.1.0] - 2026-04-27
 
 ### Added
@@ -14,5 +26,4 @@
 - **Native Language Support:** First-class IDE support for `.mdl` and `.vpk` files, including native syntax highlighting, code formatting, and intelligent auto-completion.
 - **Project Templates:** Pre-configured project templates to instantly scaffold new Vault API Integrations, Vault Java SDK (Hello World), Custom Pages, and Vault Research projects.
 
-[Unreleased]: https://github.com/veeva/Vault-Toolbox-IntelliJ/compare/v26.1.0...HEAD
-[26.1.0]: https://github.com/veeva/Vault-Toolbox-IntelliJ/releases/tag/v26.1.0
+

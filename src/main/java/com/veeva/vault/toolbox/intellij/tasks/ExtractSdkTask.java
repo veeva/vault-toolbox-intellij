@@ -1,5 +1,6 @@
 package com.veeva.vault.toolbox.intellij.tasks;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VfsUtil;
@@ -7,7 +8,9 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.veeva.vault.toolbox.core.utils.FileIO;
 import com.veeva.vault.toolbox.intellij.ui.Message;
 import com.veeva.vault.vapil.api.model.response.ComponentQueryResponse;
+import com.veeva.vault.vapil.api.model.response.SDKResponse;
 import com.veeva.vault.vapil.api.request.ConfigurationMigrationRequest;
+import com.veeva.vault.vapil.api.request.SDKRequest;
 import org.apache.commons.io.FileUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,27 +23,54 @@ import java.util.List;
 
 import static com.veeva.vault.toolbox.core.utils.Checksum.getMd5;
 
+/**
+ * Extracts all Java SDK source files from the connected Vault into the project's
+ * toolbox SDK folder. Local files that no longer have a remote counterpart are
+ * deleted so the local view mirrors what is in the vault.
+ */
 public class ExtractSdkTask extends ToolboxTask {
 	private static final Logger logger = LoggerFactory.getLogger(ExtractSdkTask.class);
+	private static final String SDK_PACKAGE_PREFIX = "com.veeva.vault.custom";
+	private static final String COMPONENT_QUERY =
+			"SELECT component_name__v FROM vault_component__v" +
+			" WHERE component_name__v LIKE '" + SDK_PACKAGE_PREFIX + "%'";
+
+	private final File sdkDirectory;
 	private final VirtualFile virtualFile;
 	private final List<String> oldFiles = new ArrayList<>();
 	private final List<String> newFiles = new ArrayList<>();
 
+	/**
+	 * @param project the IntelliJ project, may be {@code null}
+	 */
 	public ExtractSdkTask(@Nullable Project project) {
-		super(project, "Extracting MDL from Vault");
-		File extractDirectory = toolboxProject.getMdlDirectory();
-
-		FileIO.makeDirectories(extractDirectory);
-		this.virtualFile = VfsUtil.findFileByIoFile(extractDirectory, true);
+		super(project, "Extracting SDK from Vault");
+		this.sdkDirectory = new File(new File(toolboxProject.getToolboxDirectory(), "sdk"), String.valueOf(toolboxProject.getVaultId()));
+		FileIO.makeDirectories(sdkDirectory);
+		this.virtualFile = VfsUtil.findFileByIoFile(sdkDirectory, true);
 	}
 
+	/**
+	 * Orchestrates the full SDK extraction process in a background thread.
+	 *
+	 * @param indicator the progress indicator for the background task
+	 */
 	@Override
 	public void run(@NotNull ProgressIndicator indicator) {
 		try {
+			if (toolboxProject.isProductionVault()) {
+				Message message = toolboxProject.newMessage();
+				message.append("This tool cannot be run in a Production domain.");
+				message.showError();
+				return;
+			}
+			if (virtualFile == null) {
+				logger.error("Could not resolve virtual file for SDK directory: " + sdkDirectory);
+				return;
+			}
 			toolboxProject.includeFile(virtualFile.getPath());
-
 			loadOldFiles(virtualFile);
-			downloadAllMdl(virtualFile, null);
+			downloadAllSdk(null);
 			deleteMissingFiles();
 		}
 		catch (Exception e) {
@@ -48,11 +78,26 @@ public class ExtractSdkTask extends ToolboxTask {
 		}
 	}
 
+	/**
+	 * Scans the SDK extraction directory recursively to build a list of existing Java source files.
+	 *
+	 * @param vf the directory or file to scan
+	 */
+	private void loadOldFiles(VirtualFile vf) {
+		if (vf.getPath().endsWith(".java")) {
+			oldFiles.add(vf.getPath());
+		}
+		for (VirtualFile child : vf.getChildren()) {
+			loadOldFiles(child);
+		}
+	}
+
+	/**
+	 * Removes local SDK source files that were not found in the recent vault extraction.
+	 */
 	private void deleteMissingFiles() {
 		for (String oldFile : oldFiles) {
-			logger.debug("old file: " + oldFile);
 			if (!newFiles.contains(oldFile)) {
-
 				File file = new File(oldFile);
 				if (file.exists()) {
 					file.delete();
@@ -61,51 +106,53 @@ public class ExtractSdkTask extends ToolboxTask {
 		}
 	}
 
-	private void loadOldFiles(VirtualFile virtualFile) {
-		if (virtualFile.getPath().endsWith(".mdl")) {
-			oldFiles.add(virtualFile.getPath());
-		}
-		for (VirtualFile child : virtualFile.getChildren()) {
-			loadOldFiles(child);
-		}
-	}
-
-	private void downloadAllMdl(VirtualFile mdlDirectory, String nextPage) {
+	/**
+	 * Recursively pages through SDK component definitions, retrieves each source file,
+	 * writes it to the local Java source tree, and registers its checksum with the project.
+	 *
+	 * @param nextPage the API pagination token, or {@code null} for the first page
+	 */
+	private void downloadAllSdk(String nextPage) {
 		try {
-			ComponentQueryResponse queryResponse = null;
+			ComponentQueryResponse queryResponse;
 			if (nextPage == null) {
-				String query = "SELECT label__v,component_name__v, component_type__v, status__v, mdl_definition__v FROM vault_component__v";
-				queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class).componentDefinitionQuery(query);
+				queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class)
+						.componentDefinitionQuery(COMPONENT_QUERY);
 			}
 			else {
-				queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class).componentDefinitionQueryByPage(nextPage);
+				queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class)
+						.componentDefinitionQueryByPage(nextPage);
 			}
 
-			if (queryResponse != null && !queryResponse.isFailure()) {
-				queryResponse.getData().forEach(queryResult -> {
-					try {
-						String componentName = queryResult.getString("component_name__v");
-						String componentType = queryResult.getString("component_type__v");
-						String mdlDefinition = queryResult.getString("mdl_definition__v");
+			if (queryResponse == null || queryResponse.isFailure()) {
+				return;
+			}
 
-						File componentTypeDirectory = new File(mdlDirectory.getPath(), componentType);
-						toolboxProject.includeFile(componentTypeDirectory.getPath());
-						FileIO.makeDirectories(componentTypeDirectory);
+			queryResponse.getData().forEach(queryResult -> {
+				try {
+					String componentName = queryResult.getString("component_name__v");
+					String codePath = componentName.replace(".", "/");
+					File localFile = new File(sdkDirectory, codePath + ".java");
 
-						File componentRecordFile = new File(componentTypeDirectory, componentType + "." + componentName + ".mdl");
-						FileUtils.writeStringToFile(componentRecordFile, mdlDefinition, "UTF-8");
-						toolboxProject.includeFile(componentRecordFile.getAbsolutePath(), getMd5(mdlDefinition));
-						newFiles.add(componentRecordFile.getAbsolutePath());
-						//logger.debug("new file: " + componentRecordFile.getAbsolutePath());
-
-					} catch (Exception e) {
-						logger.error(e.getMessage(), e);
+					SDKResponse sdkResponse = toolboxProject.getVaultClient().newRequest(SDKRequest.class)
+							.retrieveSingleSourceCodeFile(componentName);
+					if (sdkResponse == null || sdkResponse.getBinaryContent() == null) {
+						return;
 					}
-				});
 
-				if (queryResponse.isPaginated()) {
-					downloadAllMdl(mdlDirectory, queryResponse.getResponseDetails().getNextPage());
+					String fileContent = new String(sdkResponse.getBinaryContent());
+					FileIO.makeDirectories(localFile.getParentFile());
+					toolboxProject.includeFile(localFile.getParentFile().getAbsolutePath());
+					FileUtils.writeStringToFile(localFile, fileContent, "UTF-8");
+					toolboxProject.includeFile(localFile.getAbsolutePath(), getMd5(fileContent));
+					newFiles.add(localFile.getAbsolutePath());
+				} catch (Exception e) {
+					logger.error(e.getMessage(), e);
 				}
+			});
+
+			if (queryResponse.isPaginated() && queryResponse.getResponseDetails().getNextPage() != null) {
+				downloadAllSdk(queryResponse.getResponseDetails().getNextPage());
 			}
 		}
 		catch (Exception e) {
@@ -113,15 +160,25 @@ public class ExtractSdkTask extends ToolboxTask {
 		}
 	}
 
+	/**
+	 * Notifies completion and refreshes the source root in the UI.
+	 */
 	@Override
 	public void onSuccess() {
 		super.onSuccess();
 		try {
 			if (toolboxProject != null) {
 				Message message = toolboxProject.newMessage();
-				message.setTitle("Vault MDL");
-				message.append("Refresh Completed");
+				message.setTitle("Vault SDK");
+				message.append("Extract Completed");
 				message.showInformation();
+
+				ApplicationManager.getApplication().invokeLater(() -> {
+					if (virtualFile != null) {
+						virtualFile.refresh(false, true);
+						selectInProjectView(virtualFile);
+					}
+				});
 			}
 		}
 		catch (Exception e) {

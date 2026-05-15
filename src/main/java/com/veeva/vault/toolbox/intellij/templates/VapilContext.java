@@ -6,22 +6,23 @@ import com.intellij.codeInsight.template.TemplateActionContext;
 import com.intellij.codeInsight.template.TemplateContextType;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Live template context for VAPIL (Vault API Library) snippets, active in Java source files.
+ */
 final class VapilContext extends TemplateContextType {
 
-  VapilContext() {
-    super("Java");
-  }
-
-	@Override
-	public boolean isInContext(@NotNull TemplateActionContext templateActionContext) {
-
-		try {
-			String content = new String(templateActionContext.getFile().getOriginalFile().getVirtualFile().contentsToByteArray());
-			return templateActionContext.getFile().getName().endsWith(".java");
-		}
-		catch (Exception e) {
-			return false;
-		}
+	VapilContext() {
+		super("Java");
 	}
 
+	/**
+	 * Determines whether the given template action context targets a Java source file.
+	 *
+	 * @param templateActionContext the context in which a live template is being expanded.
+	 * @return {@code true} if the underlying file has a {@code .java} extension; {@code false} otherwise.
+	 */
+	@Override
+	public boolean isInContext(@NotNull TemplateActionContext templateActionContext) {
+		return templateActionContext.getFile().getName().endsWith(".java");
+	}
 }

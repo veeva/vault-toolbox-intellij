@@ -5,6 +5,9 @@ import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.psi.FileViewProvider;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * PSI file representation for an MDL source file.
+ */
 public class MdlFile extends PsiFileBase {
 
     public MdlFile(@NotNull FileViewProvider viewProvider) {
@@ -20,9 +23,5 @@ public class MdlFile extends PsiFileBase {
     @Override
     public String toString() {
         return "MDL File";
-    }
-
-    private void test() {
-
     }
 }

@@ -4,7 +4,9 @@ import com.intellij.lang.Commenter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Allows using comment hotkeys to comment/uncomment code
+ * Defines comment markers for MDL so the IDE's Comment with Line Comment action
+ * (Cmd/Ctrl+/) toggles a leading {@code #} on the current line. Block comments
+ * are not supported by the language.
  */
 public class MdlCommenter implements Commenter {
     @Override

@@ -5,6 +5,9 @@ import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.psi.FileViewProvider;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * PSI file representation for a VPK package file.
+ */
 public class VpkFile extends PsiFileBase {
 
     public VpkFile(@NotNull FileViewProvider viewProvider) {
@@ -20,9 +23,5 @@ public class VpkFile extends PsiFileBase {
     @Override
     public String toString() {
         return "VPK File";
-    }
-
-    private void test() {
-
     }
 }

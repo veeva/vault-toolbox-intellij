@@ -6,7 +6,15 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 
+/**
+ * A dialog wrapper that hosts the deployment management interface.
+ * Supports switching between local and inbound package views.
+ */
 public class DeploymentDialog extends DialogWrapper {
+
+    /**
+     * Defines the source types for Vault packages.
+     */
     public enum PackageType {
         LOCAL("Local Packages"),
         INBOUND("Inbound Packages");
@@ -31,8 +39,14 @@ public class DeploymentDialog extends DialogWrapper {
     private final PackageType initialType;
     private DeploymentPanel deploymentPanel;
 
+    /**
+     * Initializes the deployment dialog.
+     *
+     * @param toolboxProject The toolbox project context.
+     * @param initialType    The package type to display upon opening.
+     */
     public DeploymentDialog(ToolboxProject toolboxProject, PackageType initialType) {
-        super(true); // use current window as parent
+        super(toolboxProject.getProject(), true);
         this.toolboxProject = toolboxProject;
         this.initialType = initialType;
         init();

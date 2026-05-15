@@ -5,36 +5,52 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.ToolWindow;
+import com.intellij.openapi.wm.ToolWindowId;
+import com.intellij.openapi.wm.ToolWindowManager;
+import com.intellij.ide.projectView.ProjectView;
+import com.veeva.vault.toolbox.core.models.VpkBuildManifest;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
 import com.veeva.vault.toolbox.intellij.tasks.BuildVpkTask;
 import com.veeva.vault.toolbox.intellij.tasks.DeployVpkTask;
 import com.veeva.vault.toolbox.intellij.tasks.ValidateVpkTask;
+import com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog;
 import icons.ToolboxIcons;
+import org.apache.commons.io.FileUtils;
 import org.jdesktop.swingx.JXTable;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import javax.swing.table.TableCellRenderer;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Panel for managing Vault packages located in the local project directory.
+ * Provides functionality for creating, editing, building, and deploying VPK packages.
+ */
 public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
 
+    /**
+     * Initializes the local packages panel with the specified project context.
+     *
+     * @param toolboxProject The toolbox project context.
+     */
     public LocalPackagesPanel(ToolboxProject toolboxProject) {
         super(toolboxProject);
         initUI();
 
-        deploymentTable.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                // Trigger action update
-            }
-        });
-
-        java.awt.event.MouseAdapter localMouseAdapter = new java.awt.event.MouseAdapter() {
-
+        MouseAdapter localMouseAdapter = new MouseAdapter() {
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
+            public void mouseClicked(MouseEvent e) {
                 int row = deploymentTable.rowAtPoint(e.getPoint());
                 int col = deploymentTable.columnAtPoint(e.getPoint());
 
@@ -52,16 +68,14 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
 
                         if (vpkFile.exists()) {
                             if ("Locate".equals(colName)) {
-                                com.intellij.openapi.vfs.VirtualFile vFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByIoFile(packageDir);
+                                VirtualFile vFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(packageDir);
                                 if (vFile != null) {
-                                    com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(() -> {
-                                        com.intellij.openapi.wm.ToolWindow projectViewToolWindow = com.intellij.openapi.wm.ToolWindowManager.getInstance(toolboxProject.getProject())
-                                                .getToolWindow(com.intellij.openapi.wm.ToolWindowId.PROJECT_VIEW);
+                                    ApplicationManager.getApplication().invokeLater(() -> {
+                                        ToolWindow projectViewToolWindow = ToolWindowManager.getInstance(toolboxProject.getProject())
+                                                .getToolWindow(ToolWindowId.PROJECT_VIEW);
 
                                         if (projectViewToolWindow != null) {
-                                            Runnable selectFile = () -> {
-                                                com.intellij.ide.projectView.ProjectView.getInstance(toolboxProject.getProject()).select(null, vFile, false);
-                                            };
+                                            Runnable selectFile = () -> ProjectView.getInstance(toolboxProject.getProject()).select(null, vFile, false);
 
                                             if (!projectViewToolWindow.isVisible()) {
                                                 projectViewToolWindow.show(selectFile);
@@ -69,10 +83,10 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
                                                 selectFile.run();
                                             }
                                         }
-                                    }, com.intellij.openapi.application.ModalityState.any());
+                                    }, ModalityState.any());
                                 }
                             } else {
-                                new com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog(toolboxProject.getProject(), vpkFile).show();
+                                new FileViewerDialog(toolboxProject.getProject(), vpkFile).show();
                             }
                         }
                     }
@@ -80,7 +94,7 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
             }
 
             @Override
-            public void mouseMoved(java.awt.event.MouseEvent e) {
+            public void mouseMoved(MouseEvent e) {
                 int row = deploymentTable.rowAtPoint(e.getPoint());
                 int col = deploymentTable.columnAtPoint(e.getPoint());
                 if (row >= 0 && col >= 0) {
@@ -88,12 +102,12 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
                     if ("VPK".equals(colName) || "Locate".equals(colName)) {
                         Object value = deploymentTable.getValueAt(row, col);
                         if (value != null) {
-                            deploymentTable.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+                            deploymentTable.setCursor(new Cursor(Cursor.HAND_CURSOR));
                             return;
                         }
                     }
                 }
-                deploymentTable.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+                deploymentTable.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
             }
         };
 
@@ -101,19 +115,29 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
         deploymentTable.addMouseMotionListener(localMouseAdapter);
     }
 
+    /**
+     * Gets the column names for the local packages table.
+     *
+     * @return An array of column names.
+     */
     @Override
     protected String[] getColumnNames() {
         return new String[]{"Select", "VPK", "Locate", "Name", "Summary", "Description", "Components", "Java SDK", "Web SDK"};
     }
 
+    /**
+     * Configures column widths and cell renderers for the local packages table.
+     *
+     * @param table The table to configure.
+     */
     @Override
     protected void setupColumnWidths(JXTable table) {
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 
-        javax.swing.table.TableCellRenderer defaultIconRenderer = table.getDefaultRenderer(Icon.class);
+        TableCellRenderer defaultIconRenderer = table.getDefaultRenderer(Icon.class);
 
-        javax.swing.table.TableCellRenderer clickableIconRenderer = (tbl, value, isSelected, hasFocus, row, column) -> {
-            java.awt.Component c = defaultIconRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
+        TableCellRenderer clickableIconRenderer = (tbl, value, isSelected, hasFocus, row, column) -> {
+            Component c = defaultIconRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
             if (c instanceof JComponent) {
                 String colName = table.getColumnName(column);
                 if (value != null) {
@@ -129,29 +153,29 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
             return c;
         };
 
-        table.getColumnModel().getColumn(1).setCellRenderer(clickableIconRenderer); // VPK Icon
-        table.getColumnModel().getColumn(2).setCellRenderer(clickableIconRenderer); // Locate Icon
-
-        table.getColumnModel().getColumn(6).setCellRenderer(defaultIconRenderer); // Components Check
-        table.getColumnModel().getColumn(7).setCellRenderer(defaultIconRenderer); // Java SDK Check
-        table.getColumnModel().getColumn(8).setCellRenderer(defaultIconRenderer); // Web SDK Check
+        table.getColumnModel().getColumn(1).setCellRenderer(clickableIconRenderer);
+        table.getColumnModel().getColumn(2).setCellRenderer(clickableIconRenderer);
+        table.getColumnModel().getColumn(6).setCellRenderer(defaultIconRenderer);
+        table.getColumnModel().getColumn(7).setCellRenderer(defaultIconRenderer);
+        table.getColumnModel().getColumn(8).setCellRenderer(defaultIconRenderer);
 
         table.getColumnModel().getColumn(0).setMinWidth(50);
         table.getColumnModel().getColumn(0).setMaxWidth(50);
-
         table.getColumnModel().getColumn(1).setMinWidth(50);
         table.getColumnModel().getColumn(1).setMaxWidth(50);
-
         table.getColumnModel().getColumn(2).setMinWidth(50);
         table.getColumnModel().getColumn(2).setMaxWidth(50);
     }
 
+    /**
+     * Packs the table columns while maintaining reasonable maximum width limits.
+     */
     private void packTableWithLimits() {
         if (deploymentTable != null) {
-            deploymentTable.getColumnModel().getColumn(3).setMaxWidth(300); // Name
-            deploymentTable.getColumnModel().getColumn(4).setMaxWidth(400); // Summary
-            deploymentTable.getColumnModel().getColumn(5).setMaxWidth(500); // Description
-            deploymentTable.getColumnModel().getColumn(7).setMaxWidth(300); // Java SDK
+            deploymentTable.getColumnModel().getColumn(3).setMaxWidth(300);
+            deploymentTable.getColumnModel().getColumn(4).setMaxWidth(400);
+            deploymentTable.getColumnModel().getColumn(5).setMaxWidth(500);
+            deploymentTable.getColumnModel().getColumn(7).setMaxWidth(300);
 
             deploymentTable.packAll();
 
@@ -162,6 +186,11 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
         }
     }
 
+    /**
+     * Creates the action group for the toolbar.
+     *
+     * @return The created DefaultActionGroup.
+     */
     @Override
     protected DefaultActionGroup createActionGroup() {
         DefaultActionGroup actionGroup = new DefaultActionGroup();
@@ -199,7 +228,7 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
                 List<DeploymentItem<File>> selected = getSelectedItems();
                 if (selected.size() == 1) {
                     File originalFile = selected.get(0).getItem();
-                    com.veeva.vault.toolbox.core.models.VpkBuildManifest manifest = com.veeva.vault.toolbox.core.models.VpkBuildManifest.load(originalFile);
+                    VpkBuildManifest manifest = VpkBuildManifest.load(originalFile);
                     if (manifest != null) {
                         String newName = manifest.getName() != null ? manifest.getName() + "-COPY" : "COPY";
                         manifest.setName(newName);
@@ -235,20 +264,17 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
                     if (confirm == JOptionPane.YES_OPTION) {
                         for (DeploymentItem<File> item : selected) {
                             File jsonFile = item.getItem();
-
                             File packagesDir = jsonFile.getParentFile();
                             File projectDir = packagesDir.getParentFile();
 
                             try {
-                                org.apache.commons.io.FileUtils.deleteDirectory(projectDir);
+                                FileUtils.deleteDirectory(projectDir);
                             } catch (Exception ex) {
                                 ex.printStackTrace();
                             }
                         }
 
-                        com.intellij.openapi.vfs.VirtualFile vLogsDir = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-                                .refreshAndFindFileByIoFile(toolboxProject.getVpkDirectory());
-
+                        VirtualFile vLogsDir = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(toolboxProject.getVpkDirectory());
                         if (vLogsDir != null) {
                             vLogsDir.refresh(false, true);
                         }
@@ -397,32 +423,47 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
         return actionGroup;
     }
 
+    /**
+     * Loads the data to be displayed in the panel.
+     */
     @Override
     public void loadData() {
-        allItems.clear();
-        tableModel.setRowCount(0);
-        File vpkRoot = toolboxProject.getVpkDirectory();
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            List<DeploymentItem<File>> newItems = new ArrayList<>();
+            File vpkRoot = toolboxProject.getVpkDirectory();
 
-        if (vpkRoot.exists() && vpkRoot.isDirectory()) {
-            File[] projectDirs = vpkRoot.listFiles(File::isDirectory);
-            if (projectDirs != null) {
-                for (File projectDir : projectDirs) {
-                    File packagesDir = new File(projectDir, "packages");
-                    if (packagesDir.exists() && packagesDir.isDirectory()) {
-                        File[] files = packagesDir.listFiles((dir, name) -> name.endsWith(".json"));
-                        if (files != null) {
-                            for (File file : files) {
-                                allItems.add(new DeploymentItem<>(file, false, true));
+            if (vpkRoot.exists() && vpkRoot.isDirectory()) {
+                File[] projectDirs = vpkRoot.listFiles(File::isDirectory);
+                if (projectDirs != null) {
+                    for (File projectDir : projectDirs) {
+                        File packagesDir = new File(projectDir, "packages");
+                        if (packagesDir.exists() && packagesDir.isDirectory()) {
+                            File[] files = packagesDir.listFiles((dir, name) -> name.endsWith(".json"));
+                            if (files != null) {
+                                for (File file : files) {
+                                    newItems.add(new DeploymentItem<>(file, false, true));
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        filterAndUpdateTable();
-        packTableWithLimits();
+
+            SwingUtilities.invokeLater(() -> {
+                allItems.clear();
+                tableModel.setRowCount(0);
+                allItems.addAll(newItems);
+                filterAndUpdateTable();
+                packTableWithLimits();
+            });
+        });
     }
 
+    /**
+     * Populates a row in the table model for the given local package item.
+     *
+     * @param item The item to populate the row with.
+     */
     @Override
     protected void populateRow(DeploymentItem<File> item) {
         File file = item.getItem();
@@ -439,7 +480,7 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
         Icon locateIcon = vpkFile.exists() ? AllIcons.General.Locate : null;
 
         if (file.getName().endsWith(".json")) {
-            com.veeva.vault.toolbox.core.models.VpkBuildManifest manifest = com.veeva.vault.toolbox.core.models.VpkBuildManifest.load(file);
+            VpkBuildManifest manifest = VpkBuildManifest.load(file);
             if (manifest != null) {
                 name = manifest.getName() != null && !manifest.getName().isEmpty() ? manifest.getName() : file.getName();
                 summary = manifest.getSummary() != null ? manifest.getSummary() : "";

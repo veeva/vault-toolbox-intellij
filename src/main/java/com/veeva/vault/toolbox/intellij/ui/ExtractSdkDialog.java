@@ -8,18 +8,25 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 
+/**
+ * Dialog for confirming the extraction of SDK source code from the connected Vault.
+ */
 public class ExtractSdkDialog extends DialogWrapper {
 
-	ToolboxProject toolboxProject;
-	MdlDialog.ActionType actionType;
+	private final ToolboxProject toolboxProject;
 
-	JPanel mainPanel = new JPanel();
+	/**
+	 * Initializes the Extract SDK dialog.
+	 *
+	 * @param toolboxProject The toolbox project context.
+	 */
 	public ExtractSdkDialog(ToolboxProject toolboxProject) {
-		super(false);
+		super(toolboxProject.getProject(), false);
 		this.toolboxProject = toolboxProject;
 		this.setModal(true);
 		this.setUndecorated(true);
 		this.setResizable(false);
+		setTitle("Extract SDK from Vault");
 		init();
 	}
 
@@ -28,56 +35,34 @@ public class ExtractSdkDialog extends DialogWrapper {
 		return super.doValidate();
 	}
 
-    /*
-    private class ExecuteAction extends DialogWrapperAction {
-        protected ExecuteAction() {
-            super("Execute");
-            putValue(Action.NAME, actionType.getLabel());
-        }
-
-        @Override
-        protected void doAction(ActionEvent e) {
-            ValidationInfo validationInfo = doValidate();
-            if (validationInfo == null) {
-                //getOKAction().setEnabled(isOkEnabled());
-                doOKAction();
-            }
-            else {
-                String message = validationInfo.message;
-                Messages.showMessageDialog(mainPanel, message, CommonBundle.getErrorTitle(), Messages.getErrorIcon());
-            }
-            // set implementation specific values to signal that this custom button was the cause for closing the dialog
-            // .....
-
-        }
-    }
-
-     */
-
-	boolean isOkEnabled() {
-		// return true if dialog can be closed
-		return true;
-	}
-
 	@Nullable
 	@Override
 	protected JComponent createCenterPanel() {
-		mainPanel.add(new JLabel("Do you want to refresh all MDL? Local components not in Vault will be deleted"));
+		JPanel mainPanel = new JPanel();
+		mainPanel.add(new JLabel("Do you want to extract the SDK from Vault?"));
 		return mainPanel;
 	}
 
+	/**
+	 * Configures the dialog actions, setting the primary action text to "Extract".
+	 *
+	 * @return The array of actions for the dialog.
+	 */
 	@NotNull
 	@Override
 	protected Action[] createActions() {
-		super.createDefaultActions();
-		// return right hand side action buttons
-		this.setOKButtonText(actionType.getLabel());
+		this.setOKButtonText("Extract");
 		return new Action[] { getOKAction(), getCancelAction() };
 	}
 
+	/**
+	 * Returns an empty set of actions for the left side of the dialog footer.
+	 *
+	 * @return An empty array of Actions.
+	 */
 	@NotNull
+	@Override
 	protected Action[] createLeftSideActions() {
-		// return left hand side action buttons
 		return new Action[] {  };
 	}
 }

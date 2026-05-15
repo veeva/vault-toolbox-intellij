@@ -9,6 +9,7 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.treeStructure.Tree;
+import com.veeva.vault.toolbox.intellij.listeners.ToolboxTreeNodeListener;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
 import com.veeva.vault.toolbox.core.models.VpkBuildManifest;
 import icons.ToolboxIcons;
@@ -22,16 +23,27 @@ import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
 import java.awt.*;
 import java.io.File;
+import java.util.List;
 
+/**
+ * Panel that displays and manages the hierarchy of components in a Vault VPK package.
+ * Supports adding, removing, and reordering components (MDL, CSV, JSON).
+ */
 public class ComponentTreePanel extends JPanel {
 	private static final Logger logger = LoggerFactory.getLogger(ComponentTreePanel.class);
 
-	ToolboxProject toolboxProject;
-	JTree tree;
-	DefaultTreeModel treeModel;
-	ToolboxTreeNode rootNode;
-	final VpkBuildManifest buildManifest;
+	private final ToolboxProject toolboxProject;
+	private final VpkBuildManifest buildManifest;
+	private JTree tree;
+	private DefaultTreeModel treeModel;
+	private ToolboxTreeNode rootNode;
 
+	/**
+	 * Initializes the component tree panel.
+	 *
+	 * @param toolboxProject The toolbox project context.
+	 * @param buildManifest  The package build manifest to manage.
+	 */
 	public ComponentTreePanel(ToolboxProject toolboxProject, VpkBuildManifest buildManifest) {
 		super();
 		this.toolboxProject = toolboxProject;
@@ -39,6 +51,9 @@ public class ComponentTreePanel extends JPanel {
 		init();
 	}
 
+	/**
+	 * Configures the UI components, toolbar, and initial tree state.
+	 */
 	private void init() {
 		this.setLayout(new BorderLayout());
 		ToolboxTreeNodeRenderer renderer = new ToolboxTreeNodeRenderer();
@@ -56,6 +71,11 @@ public class ComponentTreePanel extends JPanel {
 		buildTree();
 	}
 
+	/**
+	 * Creates the management toolbar with actions for modifying the component list.
+	 *
+	 * @return The toolbar component.
+	 */
 	private JComponent createToolbar() {
 		DefaultActionGroup actionGroup = new DefaultActionGroup();
 		
@@ -76,6 +96,7 @@ public class ComponentTreePanel extends JPanel {
 				e.getPresentation().setEnabled(getSelectedComponent() != null);
 			}
 		});
+
 		actionGroup.add(new AnAction("Move Up", "Move component up", AllIcons.Actions.MoveUp) {
 			@Override
 			public void actionPerformed(@NotNull AnActionEvent e) {
@@ -86,6 +107,7 @@ public class ComponentTreePanel extends JPanel {
 				e.getPresentation().setEnabled(canMoveUp());
 			}
 		});
+
 		actionGroup.add(new AnAction("Move Down", "Move component down", AllIcons.Actions.MoveDown) {
 			@Override
 			public void actionPerformed(@NotNull AnActionEvent e) {
@@ -102,6 +124,9 @@ public class ComponentTreePanel extends JPanel {
 		return actionToolbar.getComponent();
 	}
 
+	/**
+	 * Opens a file chooser to select a new component to add to the package.
+	 */
 	private void addComponent() {
 		FileChooserDescriptor fileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileOrFolderDescriptor();
 		fileChooserDescriptor.setForcedToUseIdeaFileChooser(true);
@@ -118,6 +143,11 @@ public class ComponentTreePanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Adds a component at the specified relative path and refreshes the tree.
+	 *
+	 * @param path The relative project path of the component.
+	 */
 	private void addComponent(String path) {
 		if (!isValidFileType(path)) {
 			Messages.showErrorDialog(this, "Invalid file type. Only .mdl, .csv, and .json files are supported.", "Invalid File");
@@ -138,7 +168,6 @@ public class ComponentTreePanel extends JPanel {
 		regenerateStepLabels();
 		buildTree();
 		
-		// Select the newly added component
 		int newIndex = buildManifest.getComponents().size() - 1;
 		selectComponentAtIndex(newIndex);
 	}
@@ -161,6 +190,9 @@ public class ComponentTreePanel extends JPanel {
 		return null;
 	}
 
+	/**
+	 * Removes the selected component from the manifest and refreshes the tree.
+	 */
 	private void removeComponent() {
 		VpkBuildManifest.Component component = getSelectedComponent();
 		if (component != null) {
@@ -169,7 +201,6 @@ public class ComponentTreePanel extends JPanel {
 			regenerateStepLabels();
 			buildTree();
 			
-			// Select the next component or previous if last was removed
 			if (buildManifest.getComponents().size() > 0) {
 				int newIndex = Math.min(index, buildManifest.getComponents().size() - 1);
 				selectComponentAtIndex(newIndex);
@@ -177,6 +208,9 @@ public class ComponentTreePanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Reorders the selected component one step up in the manifest.
+	 */
 	private void moveComponentUp() {
 		int index = getSelectedComponentIndex();
 		if (index > 0) {
@@ -187,6 +221,9 @@ public class ComponentTreePanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Reorders the selected component one step down in the manifest.
+	 */
 	private void moveComponentDown() {
 		int index = getSelectedComponentIndex();
 		if (index >= 0 && buildManifest.getComponents() != null && index < buildManifest.getComponents().size() - 1) {
@@ -197,6 +234,9 @@ public class ComponentTreePanel extends JPanel {
 		}
 	}
 	
+	/**
+	 * Recalculates the numerical step IDs for all components based on their current order.
+	 */
 	private void regenerateStepLabels() {
 		if (buildManifest.getComponents() != null) {
 			for (int i = 0; i < buildManifest.getComponents().size(); i++) {
@@ -245,21 +285,22 @@ public class ComponentTreePanel extends JPanel {
 		return "Unknown";
 	}
 
+	/**
+	 * Rebuilds the visual tree structure based on the current state of the build manifest.
+	 */
 	void buildTree() {
 		rootNode.removeAllChildren();
-		java.util.List<VpkBuildManifest.Component> components = buildManifest.getComponents();
-		if (components != null && components.size() > 0) {
+		List<VpkBuildManifest.Component> components = buildManifest.getComponents();
+		if (components != null && !components.isEmpty()) {
 			for (VpkBuildManifest.Component component : components) {
-				// Store the component object in the node, but set the text explicitly
 				ToolboxTreeNode stepNode = new ToolboxTreeNode(component, true, ToolboxIcons.ComponentFolder);
 				String type = getFileType(component.getPath());
 				stepNode.setText(component.getStep());
 
 				if ("CSV".equals(type)) {
-					// Add CSV file node
 					ToolboxTreeNode csvNode = new ToolboxTreeNode(component, true, ToolboxIcons.Database);
 					csvNode.setText(component.getPath());
-					csvNode.toolboxTreeNodeListener = new com.veeva.vault.toolbox.intellij.listeners.ToolboxTreeNodeListener() {
+					csvNode.toolboxTreeNodeListener = new ToolboxTreeNodeListener() {
 						@Override
 						public void singleClick(ToolboxTreeNode node) {}
 
@@ -270,7 +311,6 @@ public class ComponentTreePanel extends JPanel {
 					};
 					stepNode.add(csvNode);
 
-					// Add XML manifest node
 					String xmlPath = component.getPath().substring(0, component.getPath().lastIndexOf(".")) + ".xml";
 					File xmlFile = new File(toolboxProject.getProject().getBasePath(), xmlPath);
 					
@@ -281,7 +321,7 @@ public class ComponentTreePanel extends JPanel {
 						xmlNode.setText("{missing data manifest}");
 					}
 
-					xmlNode.toolboxTreeNodeListener = new com.veeva.vault.toolbox.intellij.listeners.ToolboxTreeNodeListener() {
+					xmlNode.toolboxTreeNodeListener = new ToolboxTreeNodeListener() {
 						@Override
 						public void singleClick(ToolboxTreeNode node) {}
 
@@ -312,6 +352,11 @@ public class ComponentTreePanel extends JPanel {
 		tree.setRootVisible(false);
 	}
 
+	/**
+	 * Opens the CSV data editor for the specified component.
+	 *
+	 * @param component The component whose data manifest should be edited.
+	 */
 	private void openCsvDataEditor(VpkBuildManifest.Component component) {
 		File csvFile = new File(toolboxProject.getProject().getBasePath(), component.getPath());
 		if (csvFile.exists()) {
@@ -324,10 +369,15 @@ public class ComponentTreePanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Opens the CSV data viewer for the specified component.
+	 *
+	 * @param component The component whose CSV data should be viewed.
+	 */
 	private void openCsvDataViewer(VpkBuildManifest.Component component) {
 		File csvFile = new File(toolboxProject.getProject().getBasePath(), component.getPath());
 		if (csvFile.exists()) {
-			CsvDataViewerDialog dialog = new CsvDataViewerDialog(csvFile);
+			CsvDataViewerDialog dialog = new CsvDataViewerDialog(toolboxProject.getProject(), csvFile);
 			dialog.show();
 		} else {
 			Messages.showErrorDialog(this, "CSV file not found: " + csvFile.getAbsolutePath(), "Error");
