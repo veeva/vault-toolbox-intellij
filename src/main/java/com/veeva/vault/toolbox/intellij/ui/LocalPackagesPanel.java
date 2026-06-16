@@ -21,7 +21,7 @@ import com.veeva.vault.toolbox.intellij.tasks.ValidateVpkTask;
 import com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog;
 import icons.ToolboxIcons;
 import org.apache.commons.io.FileUtils;
-import org.jdesktop.swingx.JXTable;
+import com.intellij.ui.table.JBTable;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -131,7 +131,7 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
      * @param table The table to configure.
      */
     @Override
-    protected void setupColumnWidths(JXTable table) {
+    protected void setupColumnWidths(JBTable table) {
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 
         TableCellRenderer defaultIconRenderer = table.getDefaultRenderer(Icon.class);
@@ -172,17 +172,7 @@ public class LocalPackagesPanel extends AbstractDeploymentPanel<File> {
      */
     private void packTableWithLimits() {
         if (deploymentTable != null) {
-            deploymentTable.getColumnModel().getColumn(3).setMaxWidth(300);
-            deploymentTable.getColumnModel().getColumn(4).setMaxWidth(400);
-            deploymentTable.getColumnModel().getColumn(5).setMaxWidth(500);
-            deploymentTable.getColumnModel().getColumn(7).setMaxWidth(300);
-
-            deploymentTable.packAll();
-
-            deploymentTable.getColumnModel().getColumn(3).setMaxWidth(Integer.MAX_VALUE);
-            deploymentTable.getColumnModel().getColumn(4).setMaxWidth(Integer.MAX_VALUE);
-            deploymentTable.getColumnModel().getColumn(5).setMaxWidth(Integer.MAX_VALUE);
-            deploymentTable.getColumnModel().getColumn(7).setMaxWidth(Integer.MAX_VALUE);
+            TableUtils.autoResizeColumns(deploymentTable);
         }
     }
 

@@ -4,7 +4,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.ui.treeStructure.Tree;
 import com.veeva.vault.toolbox.intellij.listeners.ToolboxTreeNodeListener;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
-import com.veeva.vault.toolbox.intellij.tasks.ConfiguratonReportTask;
+import com.veeva.vault.toolbox.intellij.tasks.ConfigurationReportTask;
 import com.veeva.vault.toolbox.intellij.tasks.ExtractMdlTask;
 import com.veeva.vault.toolbox.intellij.tasks.ExtractSdkTask;
 import icons.ToolboxIcons;
@@ -97,10 +97,20 @@ public class ToolboxActionPanel extends JPanel {
 				true,
 				ToolboxIcons.Api,
 				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void singleClick(ToolboxTreeNode node) {
 					}
 
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
@@ -117,10 +127,20 @@ public class ToolboxActionPanel extends JPanel {
 				true,
 				ToolboxIcons.Debug,
 				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void singleClick(ToolboxTreeNode node) {
 					}
 
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
@@ -137,10 +157,20 @@ public class ToolboxActionPanel extends JPanel {
 				true,
 				ToolboxIcons.Runtime,
 				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void singleClick(ToolboxTreeNode node) {
 					}
 
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
@@ -157,10 +187,20 @@ public class ToolboxActionPanel extends JPanel {
 				true,
 				ToolboxIcons.Atom,
 				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void singleClick(ToolboxTreeNode node) {
 					}
 
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
@@ -182,14 +222,24 @@ public class ToolboxActionPanel extends JPanel {
 				true,
 				ToolboxIcons.Download,
 				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void singleClick(ToolboxTreeNode node) {
 					}
 
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
-							if (ConfiguratonReportTask.isDownloading.get()) {
+							if (ConfigurationReportTask.isDownloading.get()) {
 								Message message = toolboxProject.newMessage();
 								message.setTitle("Download in Progress");
 								message.append("A Configuration Report is already downloading. Please wait for it to finish before starting another.");
@@ -198,10 +248,13 @@ public class ToolboxActionPanel extends JPanel {
 							}
 
 							if (toolboxProject.prepareRequest()) {
-								ConfiguratonReportTask.isDownloading.set(true);
+								ConfigurationReportDialog dialog = new ConfigurationReportDialog(toolboxProject.getProject());
+								if (dialog.showAndGet()) {
+									ConfigurationReportTask.isDownloading.set(true);
 
-								ConfiguratonReportTask task = new ConfiguratonReportTask(toolboxProject.getProject());
-								task.queue();
+									ConfigurationReportTask task = new ConfigurationReportTask(toolboxProject.getProject(), dialog.getOptions());
+									task.queue();
+								}
 							}
 						});
 
@@ -213,10 +266,20 @@ public class ToolboxActionPanel extends JPanel {
 				true,
 				ToolboxIcons.Download,
 				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void singleClick(ToolboxTreeNode node) {
 					}
 
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
@@ -249,10 +312,20 @@ public class ToolboxActionPanel extends JPanel {
 				true,
 				ToolboxIcons.Download,
 				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void singleClick(ToolboxTreeNode node) {
 					}
 
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
@@ -280,19 +353,57 @@ public class ToolboxActionPanel extends JPanel {
 					}
 				});
 
+		ToolboxTreeNode compareEnvNode = new ToolboxTreeNode(
+				"Compare Environments",
+				true,
+				ToolboxIcons.DoubleRight,
+				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
+					@Override
+					public void singleClick(ToolboxTreeNode node) {
+					}
+
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
+					@Override
+					public void doubleClick(ToolboxTreeNode node) {
+						ApplicationManager.getApplication().invokeLater(() -> {
+							new CompareEnvironmentsResultDialog(toolboxProject).show();
+						});
+					}
+				});
+
 		configurationNode.add(configReportNode);
 		configurationNode.add(mdlExtractNode);
 		configurationNode.add(sdkExtractNode);
+		configurationNode.add(compareEnvNode);
 
 		ToolboxTreeNode localPackagesNode = new ToolboxTreeNode(
 				"Local Packages",
 				true,
 				ToolboxIcons.Vpk,
 				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void singleClick(ToolboxTreeNode node) {
 					}
 
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
@@ -307,10 +418,20 @@ public class ToolboxActionPanel extends JPanel {
 				true,
 				ToolboxIcons.Vpk,
 				new ToolboxTreeNodeListener() {
+					/**
+					 * Handles single click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void singleClick(ToolboxTreeNode node) {
 					}
 
+					/**
+					 * Handles double click.
+					 *
+					 * @param node the node
+					 */
 					@Override
 					public void doubleClick(ToolboxTreeNode node) {
 						ApplicationManager.getApplication().invokeLater(() -> {
@@ -334,4 +455,5 @@ public class ToolboxActionPanel extends JPanel {
 		}
 		tree.setRootVisible(false);
 	}
+
 }

@@ -6,6 +6,7 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.table.JBTable;
 import com.opencsv.CSVReader;
 import com.veeva.vault.toolbox.intellij.settings.AppSettings;
+import com.veeva.vault.toolbox.intellij.ui.TableUtils;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -55,6 +56,7 @@ public class CsvDataViewerPanel extends JBPanel<CsvDataViewerPanel> {
 
         JBTable table = new JBTable(model);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        TableUtils.autoResizeColumns(table);
         
         JBScrollPane scrollPane = new JBScrollPane(table);
         add(scrollPane, BorderLayout.CENTER);

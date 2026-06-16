@@ -39,12 +39,13 @@ public class ExtractSdkTask extends ToolboxTask {
 	private final VirtualFile virtualFile;
 	private final List<String> oldFiles = new ArrayList<>();
 	private final List<String> newFiles = new ArrayList<>();
+	private boolean success = true;
 
 	/**
 	 * @param project the IntelliJ project, may be {@code null}
 	 */
 	public ExtractSdkTask(@Nullable Project project) {
-		super(project, "Extracting SDK from Vault");
+		super(project, "Extracting SDK from Vault", true);
 		this.sdkDirectory = new File(new File(toolboxProject.getToolboxDirectory(), "sdk"), String.valueOf(toolboxProject.getVaultId()));
 		FileIO.makeDirectories(sdkDirectory);
 		this.virtualFile = VfsUtil.findFileByIoFile(sdkDirectory, true);
@@ -62,19 +63,32 @@ public class ExtractSdkTask extends ToolboxTask {
 				Message message = toolboxProject.newMessage();
 				message.append("This tool cannot be run in a Production domain.");
 				message.showError();
+				success = false;
 				return;
 			}
 			if (virtualFile == null) {
 				logger.error("Could not resolve virtual file for SDK directory: " + sdkDirectory);
+				success = false;
 				return;
 			}
 			toolboxProject.includeFile(virtualFile.getPath());
 			loadOldFiles(virtualFile);
-			downloadAllSdk(null);
+			
+			List<String> componentNames = discoverSdkComponents(indicator);
+			if (componentNames == null) {
+				success = false;
+				return;
+			}
+			downloadSdkFiles(componentNames, indicator);
+			if (!success) {
+				return;
+			}
+			
 			deleteMissingFiles();
 		}
 		catch (Exception e) {
 			logger.error(e.getMessage(), e);
+			success = false;
 		}
 	}
 
@@ -107,57 +121,117 @@ public class ExtractSdkTask extends ToolboxTask {
 	}
 
 	/**
-	 * Recursively pages through SDK component definitions, retrieves each source file,
-	 * writes it to the local Java source tree, and registers its checksum with the project.
+	 * Pages through SDK component definitions to retrieve a list of all SDK source file components.
 	 *
-	 * @param nextPage the API pagination token, or {@code null} for the first page
+	 * @param indicator the progress indicator
+	 * @return a list of component names, or null if an error occurred
+	 * @throws Exception if an error occurs during API requests
 	 */
-	private void downloadAllSdk(String nextPage) {
-		try {
+	private List<String> discoverSdkComponents(ProgressIndicator indicator) throws Exception {
+		indicator.setIndeterminate(true);
+		indicator.setText("Discovering SDK components...");
+		List<String> componentNames = new ArrayList<>();
+		String nextPage = null;
+		do {
+			indicator.checkCanceled();
 			ComponentQueryResponse queryResponse;
 			if (nextPage == null) {
 				queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class)
 						.componentDefinitionQuery(COMPONENT_QUERY);
-			}
-			else {
+			} else {
 				queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class)
 						.componentDefinitionQueryByPage(nextPage);
 			}
 
 			if (queryResponse == null || queryResponse.isFailure()) {
-				return;
+				if (queryResponse != null) {
+					if (!toolboxProject.handleSessionExpiration(queryResponse)) {
+						Message message = toolboxProject.newMessage();
+						message.setTitle("Extract Failed");
+						String error = queryResponse.getResponseMessage();
+						if ((error == null || error.isEmpty()) && queryResponse.getErrors() != null && !queryResponse.getErrors().isEmpty()) {
+							error = queryResponse.getErrors().get(0).getMessage();
+						}
+						message.append(error != null && !error.isEmpty() ? error : "Failed to extract SDK.");
+						message.showError();
+					}
+				} else {
+					Message message = toolboxProject.newMessage();
+					message.setTitle("Extract Failed");
+					message.append("No response received from Vault.");
+					message.showError();
+				}
+				return null;
 			}
 
 			queryResponse.getData().forEach(queryResult -> {
-				try {
-					String componentName = queryResult.getString("component_name__v");
-					String codePath = componentName.replace(".", "/");
-					File localFile = new File(sdkDirectory, codePath + ".java");
-
-					SDKResponse sdkResponse = toolboxProject.getVaultClient().newRequest(SDKRequest.class)
-							.retrieveSingleSourceCodeFile(componentName);
-					if (sdkResponse == null || sdkResponse.getBinaryContent() == null) {
-						return;
-					}
-
-					String fileContent = new String(sdkResponse.getBinaryContent());
-					FileIO.makeDirectories(localFile.getParentFile());
-					toolboxProject.includeFile(localFile.getParentFile().getAbsolutePath());
-					FileUtils.writeStringToFile(localFile, fileContent, "UTF-8");
-					toolboxProject.includeFile(localFile.getAbsolutePath(), getMd5(fileContent));
-					newFiles.add(localFile.getAbsolutePath());
-				} catch (Exception e) {
-					logger.error(e.getMessage(), e);
-				}
+				componentNames.add(queryResult.getString("component_name__v"));
 			});
 
 			if (queryResponse.isPaginated() && queryResponse.getResponseDetails().getNextPage() != null) {
-				downloadAllSdk(queryResponse.getResponseDetails().getNextPage());
+				nextPage = queryResponse.getResponseDetails().getNextPage();
+			} else {
+				nextPage = null;
+			}
+		} while (nextPage != null);
+		return componentNames;
+	}
+
+	/**
+	 * Retrieves each source file, writes it to the local Java source tree,
+	 * and registers its checksum with the project. Updates the progress indicator deterministically.
+	 *
+	 * @param componentNames the list of component names to download
+	 * @param indicator the progress indicator
+	 */
+	private void downloadSdkFiles(List<String> componentNames, ProgressIndicator indicator) {
+		indicator.setIndeterminate(false);
+		int total = componentNames.size();
+		for (int i = 0; i < total; i++) {
+			indicator.checkCanceled();
+			String componentName = componentNames.get(i);
+			indicator.setFraction((double) i / total);
+			indicator.setText("Downloading " + componentName + " (" + (i + 1) + "/" + total + ")");
+
+			try {
+				String codePath = componentName.replace(".", "/");
+				File localFile = new File(sdkDirectory, codePath + ".java");
+
+				SDKResponse sdkResponse = toolboxProject.getVaultClient().newRequest(SDKRequest.class)
+						.retrieveSingleSourceCodeFile(componentName);
+				if (sdkResponse == null || sdkResponse.isFailure()) {
+					if (sdkResponse != null) {
+						if (!toolboxProject.handleSessionExpiration(sdkResponse)) {
+							Message message = toolboxProject.newMessage();
+							message.setTitle("Extract Failed");
+							String error = sdkResponse.getResponseMessage();
+							if ((error == null || error.isEmpty()) && sdkResponse.getErrors() != null && !sdkResponse.getErrors().isEmpty()) {
+								error = sdkResponse.getErrors().get(0).getMessage();
+							}
+							message.append(error != null && !error.isEmpty() ? error : "Failed to extract SDK component: " + componentName);
+							message.showError();
+						}
+					}
+					success = false;
+					return;
+				}
+				if (sdkResponse.getBinaryContent() == null) {
+					continue;
+				}
+
+				String fileContent = new String(sdkResponse.getBinaryContent());
+				FileIO.makeDirectories(localFile.getParentFile());
+				toolboxProject.includeFile(localFile.getParentFile().getAbsolutePath());
+				FileUtils.writeStringToFile(localFile, fileContent, "UTF-8");
+				toolboxProject.includeFile(localFile.getAbsolutePath(), getMd5(fileContent));
+				newFiles.add(localFile.getAbsolutePath());
+			} catch (Exception e) {
+				logger.error("Failed to download SDK file: " + componentName, e);
+				success = false;
+				return;
 			}
 		}
-		catch (Exception e) {
-			logger.error(e.getMessage(), e);
-		}
+		indicator.setFraction(1.0);
 	}
 
 	/**
@@ -166,6 +240,9 @@ public class ExtractSdkTask extends ToolboxTask {
 	@Override
 	public void onSuccess() {
 		super.onSuccess();
+		if (!success) {
+			return;
+		}
 		try {
 			if (toolboxProject != null) {
 				Message message = toolboxProject.newMessage();

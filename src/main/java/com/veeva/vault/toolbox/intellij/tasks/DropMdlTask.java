@@ -94,6 +94,13 @@ public class DropMdlTask extends ToolboxTask {
 					.setRequestString(dropStatement)
 					.executeMDLScript();
 
+			if (vaultResponse != null && vaultResponse.isFailure()) {
+				if (toolboxProject.handleSessionExpiration(vaultResponse)) {
+					vaultResponse = null;
+					return;
+				}
+			}
+
 			if (vaultResponse != null && !vaultResponse.isFailure()) {
 				String localPath = psiFile.getVirtualFile().getPath();
 				toolboxProject.removeFile(localPath);

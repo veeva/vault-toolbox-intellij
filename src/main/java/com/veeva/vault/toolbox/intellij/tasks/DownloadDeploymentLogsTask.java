@@ -44,7 +44,7 @@ public class DownloadDeploymentLogsTask extends ToolboxTask {
             return;
         }
 
-        outputDirectory = new File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
+        outputDirectory = new File(toolboxProject.getLogsDirectory(), "deployment/" + toolboxProject.getVaultId() + "/" + packageName + "." + packageId);
 
         DeploymentLogDownloader downloader = new DeploymentLogDownloader();
         downloader.downloadLogs(toolboxProject.getVaultClient(), packageId, outputDirectory,

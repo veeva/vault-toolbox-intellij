@@ -68,6 +68,7 @@ public class CsvDataViewerDialog extends DialogWrapper {
 
         JBTable table = new JBTable(model);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        TableUtils.autoResizeColumns(table);
         
         JBScrollPane scrollPane = new JBScrollPane(table);
         panel.add(scrollPane, BorderLayout.CENTER);

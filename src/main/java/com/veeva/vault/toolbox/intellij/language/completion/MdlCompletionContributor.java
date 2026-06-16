@@ -13,6 +13,9 @@ import com.veeva.vault.toolbox.intellij.language.psi.MdlTypes;
  * appear at a position, the attribute provider currently takes precedence.</p>
  */
 public class MdlCompletionContributor extends CompletionContributor {
+    /**
+     * Constructs a new MdlCompletionContributor and registers completion providers for various MDL tokens.
+     */
     MdlCompletionContributor() {
         extend(null, PlatformPatterns.psiElement(MdlTypes.COMMAND), new CommandCompletionProvider());
         extend(null, PlatformPatterns.psiElement(MdlTypes.OPERATOR), new OperatorCompletionProvider());
@@ -22,5 +25,6 @@ public class MdlCompletionContributor extends CompletionContributor {
         extend(null, PlatformPatterns.psiElement(MdlTypes.ATTRIBUTE_COMMAND), new AttributeCommandCompletionProvider());
         extend(null, PlatformPatterns.psiElement(MdlTypes.POST_ATTRIBUTE_COMMAND), new PostAttributeCommandCompletionProvider());
         extend(null, PlatformPatterns.psiElement(MdlTypes.ATTRIBUTE), new AttributeCompletionProvider());
+        extend(null, PlatformPatterns.psiElement(MdlTypes.VALUE), new ReferenceValueCompletionProvider());
     }
 }

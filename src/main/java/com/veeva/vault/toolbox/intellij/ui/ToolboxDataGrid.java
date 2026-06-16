@@ -106,6 +106,8 @@ public class ToolboxDataGrid extends JPanel {
 			table.getColumnModel().getColumn(0).setMinWidth(75);
 			table.getColumnModel().getColumn(0).setMaxWidth(75);
 		}
+		table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+		TableUtils.autoResizeColumns(table);
 
 		JBScrollPane scrollPane = new JBScrollPane(table);
 		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);

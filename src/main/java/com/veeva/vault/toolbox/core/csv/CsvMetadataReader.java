@@ -1,10 +1,3 @@
-/*---------------------------------------------------------------------
- *	Copyright (c) 2020 Veeva Systems Inc.  All Rights Reserved.
- *	This code is based on pre-existing content developed and
- *	owned by Veeva Systems Inc. and may only be used in connection
- *	with the deliverable with which it was provided to Customer.
- *---------------------------------------------------------------------
- */
 package com.veeva.vault.toolbox.core.csv;
 
 import com.fasterxml.jackson.databind.MappingIterator;
@@ -76,7 +69,7 @@ public class CsvMetadataReader<T> {
 	 * every remaining row.
 	 *
 	 * <p>Rows whose timestamp is missing or malformed are skipped: these originate from log lines
-	 * whose stack traces spilled across multiple physical lines (DEV-691878). When such a row is
+	 * whose stack traces spilled across multiple physical lines. When such a row is
 	 * skipped, the {@code reference_id} of the previous valid row is cleared so that the orphaned
 	 * trace is not attributed to an unrelated request.
 	 *

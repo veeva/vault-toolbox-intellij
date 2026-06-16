@@ -35,9 +35,14 @@ public final class AppSettings implements PersistentStateComponent<AppSettings.A
         public String username = "";
         public boolean allowAllCertificates = false;
         public int csvMaxRows = 100;
+        public boolean openLogsInDesktop = true;
         public Vault.AuthenticationType authenticationType = Vault.AuthenticationType.BASIC;
         public int connectionTimeout = 15;
         public List<SavedCredential> savedCredentials = new ArrayList<>();
+        /** Maximum number of rows written when exporting VQL Console results to CSV. */
+        public int vqlMaxExportRows = 50000;
+        /** Most-recently-run VQL Console queries, newest first. */
+        public List<String> vqlHistory = new ArrayList<>();
     }
 
     private AppState state = new AppState();
@@ -47,6 +52,26 @@ public final class AppSettings implements PersistentStateComponent<AppSettings.A
      */
     public static AppSettings getInstance() {
         return ApplicationManager.getApplication().getService(AppSettings.class);
+    }
+
+    /**
+     * Returns the first {@link SavedCredential} whose DNS matches {@code vaultDNS},
+     * preferring the one marked as default. Returns {@code null} if none match.
+     *
+     * @param vaultDNS the DNS to search for
+     * @return the matching SavedCredential, or null if none found
+     */
+    public static SavedCredential findCredentialByDns(String vaultDNS) {
+        if (vaultDNS == null) return null;
+        AppState state = getInstance().getState();
+        if (state == null) return null;
+        SavedCredential first = null;
+        for (SavedCredential c : state.savedCredentials) {
+            if (!vaultDNS.equalsIgnoreCase(c.vaultDNS)) continue;
+            if (c.isDefault) return c;
+            if (first == null) first = c;
+        }
+        return first;
     }
 
     /**

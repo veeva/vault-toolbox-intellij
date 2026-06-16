@@ -42,12 +42,14 @@ public class ConfiguratonReportTask extends ToolboxTask {
 
     private DeploymentResult reportResult;
     private File reportFolder;
+    private ConfigurationReport.Options options;
 
     /**
      * @param project the IntelliJ project, may be {@code null}
      */
-    public ConfiguratonReportTask(@Nullable Project project) {
+    public ConfiguratonReportTask(@Nullable Project project, ConfigurationReport.Options options) {
         super(project, "Downloading Configuration Report", true);
+        this.options = options;
     }
 
     /**
@@ -74,7 +76,7 @@ public class ConfiguratonReportTask extends ToolboxTask {
             File outputFile = new File(reportFolder, "temp-report.zip");
 
             ConfigurationReport configurationReport = new ConfigurationReport(toolboxProject.getVaultClient());
-            reportResult = configurationReport.downloadConfigurationReport(outputFile, changeProgress, true, indicator::isCanceled);
+            reportResult = configurationReport.downloadConfigurationReport(outputFile, changeProgress, true, indicator::isCanceled, options);
 
             if (outputFile.exists()) {
                 outputFile.delete();

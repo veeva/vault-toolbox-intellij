@@ -1,0 +1,57 @@
+<html>
+<body>
+<p>
+  Reports instantiation of standard Java collection classes and use of
+  <code>java.util.stream.Collectors</code>, both of which are not permitted in the
+  Vault Java SDK sandbox. Use the SDK-provided <code>VaultCollections</code> and
+  <code>VaultCollectors</code> classes instead.
+</p>
+
+<p><b>What is flagged:</b></p>
+<ul>
+  <li>
+    <b>Collection instantiation</b> — <code>new ArrayList&lt;&gt;()</code>,
+    <code>new HashMap&lt;&gt;()</code>, <code>new HashSet&lt;&gt;()</code>,
+    <code>new LinkedList&lt;&gt;()</code>, <code>new TreeMap&lt;&gt;()</code>,
+    <code>new TreeSet&lt;&gt;()</code>, and similar standard collection constructors
+  </li>
+  <li>
+    <b>import java.util.stream.Collectors</b> — explicit import of the forbidden class
+  </li>
+  <li>
+    <b>Collectors.toList()</b>, <b>Collectors.toSet()</b>, <b>Collectors.toMap()</b>, etc.
+    — caught via method-call resolution even without an explicit import
+    (e.g. via <code>java.util.stream.*</code>)
+  </li>
+</ul>
+
+<p><b>Example violations and fixes:</b></p>
+<pre>
+// Invalid
+import java.util.stream.Collectors;       // flagged
+
+List&lt;String&gt; names = new ArrayList&lt;&gt;();  // flagged
+Map&lt;String, String&gt; map = new HashMap&lt;&gt;(); // flagged
+
+List&lt;String&gt; result = records.stream()
+        .map(r -&gt; r.getValue("name__v", ValueType.STRING))
+        .collect(Collectors.toList());    // flagged
+
+// Valid
+List&lt;String&gt; names = VaultCollections.newList();
+Map&lt;String, String&gt; map = VaultCollections.newMap();
+
+List&lt;String&gt; result = records.stream()
+        .map(r -&gt; r.getValue("name__v", ValueType.STRING))
+        .collect(VaultCollectors.toList());
+</pre>
+
+<p><b>Quick-fix:</b></p>
+<p>
+  For <code>Collectors.toList()</code> and <code>Collectors.toSet()</code>, a
+  <b>Replace with VaultCollectors.toList/toSet()</b> quick-fix is available.
+  After applying, use IntelliJ's <b>Add import</b> intention to resolve the
+  <code>VaultCollectors</code> reference.
+</p>
+</body>
+</html>

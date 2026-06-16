@@ -1,0 +1,45 @@
+<html>
+<body>
+<p>
+  Reports field declarations that imply shared or thread-dependent state, both of which
+  are forbidden in the Vault Java SDK sandbox.
+</p>
+
+<p><b>What is flagged:</b></p>
+<ul>
+  <li>
+    <b>Static mutable fields</b> — any <code>static</code> field without a <code>final</code> modifier.
+    The Vault SDK may load and unload classes across invocations; mutable static fields can
+    leak data between unrelated user sessions.
+  </li>
+  <li>
+    <b>Volatile fields</b> — the <code>volatile</code> keyword implies shared access across threads,
+    which is not permitted in the single-threaded SDK runtime.
+  </li>
+</ul>
+
+<p><b>Example violations:</b></p>
+<pre>
+public class MyAction implements RecordAction {
+    private static int callCount = 0;           // flagged — static mutable
+    private static List&lt;String&gt; cache = ...;   // flagged — static mutable
+    private volatile boolean running = false;   // flagged — volatile
+
+    private static final String PREFIX = "v_";  // OK — compile-time constant
+}
+</pre>
+
+<p><b>Quick-fix (static mutable fields):</b></p>
+<p>
+  The <b>Add 'final' modifier</b> quick-fix is available when the field has an initializer
+  and is not reassigned elsewhere. Review before applying.
+</p>
+
+<p><b>Recommended alternative:</b></p>
+<p>
+  Keep only <code>static final</code> compile-time constants as static fields.
+  For state shared within a single SDK invocation, use instance fields or pass
+  values explicitly between methods.
+</p>
+</body>
+</html>

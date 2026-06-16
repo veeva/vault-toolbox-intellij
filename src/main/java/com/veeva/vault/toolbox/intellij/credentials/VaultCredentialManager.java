@@ -24,60 +24,6 @@ public class VaultCredentialManager {
     }
 
     /**
-     * Retrieves username and password credentials for a specific Vault DNS.
-     *
-     * @param vaultDNS the DNS of the Vault
-     * @return a BasicAuth object containing the credentials, or null if not found
-     */
-    public static BasicAuth getUsernamePassword(String vaultDNS) {
-        CredentialAttributes attributes = createCredentialAttributes(getBasicAuthKey(vaultDNS));
-        PasswordSafe passwordSafe = PasswordSafe.getInstance();
-        Credentials credentials = passwordSafe.get(attributes);
-        if (credentials != null) {
-            return new BasicAuth(
-                    credentials.getUserName(),
-                    credentials.getPasswordAsString()
-            );
-        }
-        return null;
-    }
-
-    /**
-     * Stores username and password credentials for a specific Vault DNS.
-     *
-     * @param vaultDNS the DNS of the Vault
-     * @param username the Vault username
-     * @param password the Vault password
-     */
-    public static void setUsernamePassword(String vaultDNS, String username, String password) {
-        CredentialAttributes credentialAttributes = createCredentialAttributes(getBasicAuthKey(vaultDNS));
-        Credentials credentials = new Credentials(username, password);
-        PasswordSafe.getInstance().set(credentialAttributes, credentials);
-    }
-
-    /**
-     * Retrieves a stored session ID for a specific Vault DNS.
-     *
-     * @param vaultDNS the DNS of the Vault
-     * @return the session ID, or null if not found
-     */
-    public static String getSessionId(String vaultDNS) {
-        CredentialAttributes attributes = createCredentialAttributes(getSessionKey(vaultDNS));
-        return PasswordSafe.getInstance().getPassword(attributes);
-    }
-
-    /**
-     * Stores a session ID for a specific Vault DNS.
-     *
-     * @param vaultDNS  the DNS of the Vault
-     * @param sessionId the session ID to store
-     */
-    public static void setSessionId(String vaultDNS, String sessionId) {
-        CredentialAttributes attributes = createCredentialAttributes(getSessionKey(vaultDNS));
-        PasswordSafe.getInstance().setPassword(attributes, sessionId);
-    }
-
-    /**
      * Retrieves username and password credentials for a saved credential by its ID.
      *
      * @param credentialId the unique ID of the saved credential
@@ -134,26 +80,6 @@ public class VaultCredentialManager {
     public static void deleteCredentialById(String credentialId) {
         PasswordSafe.getInstance().set(createCredentialAttributes(getBasicAuthKeyById(credentialId)), null);
         PasswordSafe.getInstance().set(createCredentialAttributes(getSessionKeyById(credentialId)), null);
-    }
-
-    /**
-     * Generates the key used for basic authentication credentials.
-     *
-     * @param vaultDNS the DNS of the Vault
-     * @return the formatted key
-     */
-    private static String getBasicAuthKey(String vaultDNS) {
-        return vaultDNS + ".BasicAuth";
-    }
-
-    /**
-     * Generates the key used for session ID storage.
-     *
-     * @param vaultDNS the DNS of the Vault
-     * @return the formatted key
-     */
-    private static String getSessionKey(String vaultDNS) {
-        return vaultDNS + ".SessionId";
     }
 
     /**

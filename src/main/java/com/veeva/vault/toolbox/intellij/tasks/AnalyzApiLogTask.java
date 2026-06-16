@@ -23,6 +23,7 @@ public class AnalyzApiLogTask extends ToolboxTask {
 	private static final String LOCAL_VAULT_ID = "local";
 
 	private final VirtualFile virtualFile;
+	private File outputFile;
 
 	/**
 	 * Creates a task that analyzes API logs in the project's default logs directory.
@@ -65,7 +66,7 @@ public class AnalyzApiLogTask extends ToolboxTask {
 			apiUsageLog.importLogFiles(dbFile, apiLogDirectory);
 
 			String dateSuffix = LogFileNameUtils.getDateRangeSuffix(apiLogDirectory);
-			File outputFile = new File(analysisDirectory, "api_usage_analysis_" + dateSuffix + ".csv");
+			outputFile = new File(analysisDirectory, "api_usage_analysis_" + dateSuffix + ".csv");
 			apiUsageLog.analyze(dbFile, outputFile);
 
 			openInDesktop(outputFile);
@@ -76,12 +77,38 @@ public class AnalyzApiLogTask extends ToolboxTask {
 	}
 
 	/**
+	 * Triggered after the log analysis completes successfully. Selects the resulting
+	 * CSV file in the Project View and shows a success notification if desktop
+	 * auto-open is disabled.
+	 */
+	@Override
+	public void onSuccess() {
+		super.onSuccess();
+		if (outputFile != null) {
+			VirtualFile vFile = VfsUtil.findFileByIoFile(outputFile, true);
+			selectInProjectView(vFile);
+
+			com.veeva.vault.toolbox.intellij.settings.AppSettings.AppState state = com.veeva.vault.toolbox.intellij.settings.AppSettings.getInstance().getState();
+			if (state == null || !state.openLogsInDesktop) {
+				com.veeva.vault.toolbox.intellij.ui.Message message = new com.veeva.vault.toolbox.intellij.ui.Message(toolboxProject);
+				message.setTitle("Analyze Logs");
+				message.append("API usage log analysis completed successfully.");
+				message.showInformation();
+			}
+		}
+	}
+
+	/**
 	 * Opens the specified file using the system's default desktop application for CSV files.
 	 *
 	 * @param file the file to open
 	 */
 	private static void openInDesktop(File file) {
 		if (!Desktop.isDesktopSupported() || !file.exists()) {
+			return;
+		}
+		com.veeva.vault.toolbox.intellij.settings.AppSettings.AppState state = com.veeva.vault.toolbox.intellij.settings.AppSettings.getInstance().getState();
+		if (state == null || !state.openLogsInDesktop) {
 			return;
 		}
 		try {

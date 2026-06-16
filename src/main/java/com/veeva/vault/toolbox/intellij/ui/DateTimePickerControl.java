@@ -224,29 +224,60 @@ public class DateTimePickerControl extends JBPanel<DateTimePickerControl> {
 		private final JPanel gridPanel;
 		private final JLabel monthLabel;
 
+		/**
+		 * Constructs a new CalendarView with the specified initial date and constraints.
+		 *
+		 * @param initialDate     the date to display initially
+		 * @param minDateTime     the minimum allowed date/time
+		 * @param maxDateTime     the maximum allowed date/time
+		 * @param onDateSelected  callback invoked when a date is selected
+		 */
 		public CalendarView(LocalDate initialDate, LocalDateTime minDateTime, LocalDateTime maxDateTime, Consumer<LocalDate> onDateSelected) {
 			super(new BorderLayout());
 			this.currentDisplayedMonth = YearMonth.from(initialDate);
 			this.setBorder(JBUI.Borders.empty(10));
 
 			JPanel headerPanel = new JPanel(new BorderLayout());
-			JButton prevButton = new JButton("<");
-			JButton nextButton = new JButton(">");
+			
+			JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+			JButton prevYearButton = new JButton("<<");
+			JButton prevMonthButton = new JButton("<");
+			prevYearButton.setMargin(JBUI.insets(2, 5));
+			prevMonthButton.setMargin(JBUI.insets(2, 5));
+			leftPanel.add(prevYearButton);
+			leftPanel.add(prevMonthButton);
+
+			JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+			JButton nextMonthButton = new JButton(">");
+			JButton nextYearButton = new JButton(">>");
+			nextMonthButton.setMargin(JBUI.insets(2, 5));
+			nextYearButton.setMargin(JBUI.insets(2, 5));
+			rightPanel.add(nextMonthButton);
+			rightPanel.add(nextYearButton);
+
 			monthLabel = new JBLabel("", SwingConstants.CENTER);
 			monthLabel.setFont(monthLabel.getFont().deriveFont(Font.BOLD));
 
-			prevButton.addActionListener(e -> {
+			prevYearButton.addActionListener(e -> {
+				currentDisplayedMonth = currentDisplayedMonth.minusYears(1);
+				updateCalendar(minDateTime, maxDateTime, onDateSelected);
+			});
+			prevMonthButton.addActionListener(e -> {
 				currentDisplayedMonth = currentDisplayedMonth.minusMonths(1);
 				updateCalendar(minDateTime, maxDateTime, onDateSelected);
 			});
-			nextButton.addActionListener(e -> {
+			nextMonthButton.addActionListener(e -> {
 				currentDisplayedMonth = currentDisplayedMonth.plusMonths(1);
 				updateCalendar(minDateTime, maxDateTime, onDateSelected);
 			});
+			nextYearButton.addActionListener(e -> {
+				currentDisplayedMonth = currentDisplayedMonth.plusYears(1);
+				updateCalendar(minDateTime, maxDateTime, onDateSelected);
+			});
 
-			headerPanel.add(prevButton, BorderLayout.WEST);
+			headerPanel.add(leftPanel, BorderLayout.WEST);
 			headerPanel.add(monthLabel, BorderLayout.CENTER);
-			headerPanel.add(nextButton, BorderLayout.EAST);
+			headerPanel.add(rightPanel, BorderLayout.EAST);
 
 			gridPanel = new JPanel(new GridLayout(0, 7, JBUI.scale(2), JBUI.scale(2)));
 

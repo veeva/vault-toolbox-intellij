@@ -168,11 +168,11 @@ public class LogPanel extends JPanel {
         apiEndDatePicker.setDate(today);
         sdkEndDatePicker.setDate(today);
         this.mainPanel.add(logsTab);
-        logsTab.addTab("", ToolboxIcons.Api, apiUsagePanel);
-        logsTab.addTab("", ToolboxIcons.Debug, sdkDebugPanel);
+        logsTab.addTab("", ToolboxIcons.Api, apiUsagePanel, "API Usage");
+        logsTab.addTab("", ToolboxIcons.Debug, sdkDebugPanel, "SDK Debug");
 
         if (includeDownload) {
-            logsTab.addTab("", ToolboxIcons.Runtime, sdkRuntimePanel);
+            logsTab.addTab("", ToolboxIcons.Runtime, sdkRuntimePanel, "SDK Runtime");
             apiUsagePanel.add(new JLabel("Download and analyze API Usage Logs"));
             sdkDebugPanel.add(new JLabel("Download and analyze SDK Debug Logs"));
             sdkDebugPanel.add(new JLabel("Download SDK Runtime Logs"));

@@ -1,0 +1,37 @@
+<html>
+<body>
+<p>
+  Reports direct network access and external process execution that are forbidden in the
+  Vault Java SDK sandbox. Raw socket connections and process spawning bypass Vault's
+  security model and are blocked at runtime.
+</p>
+
+<p><b>What is flagged:</b></p>
+<ul>
+  <li>Imports of <code>java.net.Socket</code>, <code>ServerSocket</code>, <code>DatagramSocket</code>,
+      <code>MulticastSocket</code>, <code>HttpURLConnection</code>, or <code>URLConnection</code></li>
+  <li>Imports of <code>java.lang.ProcessBuilder</code></li>
+  <li>Instantiation of any of the above classes</li>
+</ul>
+
+<p><b>Example violation:</b></p>
+<pre>
+import java.net.Socket;           // flagged
+import java.lang.ProcessBuilder;  // flagged
+
+public class MyTrigger implements RecordTrigger {
+    public void execute(RecordTriggerContext context) {
+        Socket s = new Socket("api.example.com", 443);  // flagged
+        new ProcessBuilder("curl", "...").start();       // flagged
+    }
+}
+</pre>
+
+<p><b>Recommended alternative:</b></p>
+<p>
+  Use <code>ServiceLocator.locate(ConnectionService.class)</code> to make approved
+  outbound HTTP calls via a Vault-managed connection. Connections must be configured
+  in Vault as a Connection record before use.
+</p>
+</body>
+</html>

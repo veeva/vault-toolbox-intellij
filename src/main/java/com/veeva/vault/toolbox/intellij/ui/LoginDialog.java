@@ -24,9 +24,9 @@ public class LoginDialog extends DialogWrapper {
         super(toolboxProject.getProject(), true);
         this.toolboxProject = toolboxProject;
         this.loginControl = new LoginPanel(toolboxProject, false);
+        this.loginControl.setCredentialSaveHandler(pending -> toolboxProject.promptToSaveCredential(pending));
         this.setModal(true);
         this.setUndecorated(true);
-        this.setSize(400, 300);
         this.setResizable(false);
         init();
     }

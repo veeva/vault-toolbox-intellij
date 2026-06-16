@@ -12,7 +12,6 @@ plugins {
     alias(libs.plugins.qodana) // Gradle Qodana Plugin
     alias(libs.plugins.kover) // Gradle Kover Plugin
     alias(libs.plugins.grammarKit)
-    id("com.gradleup.shadow") version "8.3.5"
 }
 
 group = providers.gradleProperty("pluginGroup").get()
@@ -83,6 +82,8 @@ dependencies {
 // Configure IntelliJ Platform Gradle Plugin - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-extension.html
 intellijPlatform {
     pluginConfiguration {
+        id = providers.gradleProperty("pluginGroup")
+        name = "Vault Toolbox"
         version = providers.gradleProperty("pluginVersion")
 
         // Extract the <!-- Plugin description --> section from README.md and provide for the plugin's manifest
@@ -140,6 +141,7 @@ intellijPlatform {
     pluginVerification {
         ides {
             ide(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
+            local(file("/Applications/IntelliJ IDEA.app/Contents"))
         }
     }
 }
@@ -163,10 +165,6 @@ kover {
 
 
 tasks {
-    shadowJar {
-        archiveClassifier = ""
-        mergeServiceFiles()
-    }
     wrapper {
         gradleVersion = providers.gradleProperty("gradleVersion").get()
     }
@@ -210,3 +208,6 @@ intellijPlatformTesting {
         }
     }
 }
+
+// End of file
+

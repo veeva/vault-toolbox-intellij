@@ -70,7 +70,7 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
                     DeveloperLogItem<SdkRuntimeSession> item = allItems.get(sessionTable.convertRowIndexToModel(row));
 
                     if (item.isLocal()) {
-                        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/runtime/" + toolboxProject.getVaultId());
+                        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/runtime/" + getSelectedVaultId());
                         File dateDir = new File(vaultLogsDir, item.getItem().getLogDate());
 
                         if (dateDir.exists()) {
@@ -159,6 +159,11 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
      * @return An array of column names.
      */
     @Override
+    protected String getLogTypeSubdir() {
+        return "runtime";
+    }
+
+    @Override
     protected String[] getColumnNames() {
         return new String[]{"Select", "View", "Locate", "SDK Date"};
     }
@@ -218,6 +223,10 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
 
         actionGroup.addSeparator();
 
+        actionGroup.add(createImportAction(DeveloperLogsDialog.LogType.SDK_RUNTIME));
+
+        actionGroup.addSeparator();
+
         actionGroup.add(new AnAction("Refresh", "Refresh list", AllIcons.Actions.Refresh) {
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
@@ -235,8 +244,9 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
     public void loadData() {
         new Thread(() -> {
             try {
+                String selectedVaultId = getSelectedVaultId();
                 Map<String, DeveloperLogItem<SdkRuntimeSession>> itemMap = new HashMap<>();
-                File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/runtime/" + toolboxProject.getVaultId());
+                File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/runtime/" + selectedVaultId);
 
                 if (vaultLogsDir.exists()) {
                     try {
@@ -258,16 +268,18 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
                     }
                 }
 
-                LocalDate today = LocalDate.now(ZoneId.of("UTC"));
-                for (int i = 0; i < 30; i++) {
-                    String dateStr = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(today.minusDays(i));
+                if (isOnConnectedVault()) {
+                    LocalDate today = LocalDate.now(ZoneId.of("UTC"));
+                    for (int i = 0; i < 30; i++) {
+                        String dateStr = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(today.minusDays(i));
 
-                    if (itemMap.containsKey(dateStr)) {
-                        itemMap.get(dateStr).setInVault(true);
-                    } else {
-                        SdkRuntimeSession vaultSession = new SdkRuntimeSession();
-                        vaultSession.setLogDate(dateStr);
-                        itemMap.put(dateStr, new DeveloperLogItem<>(vaultSession, true, false));
+                        if (itemMap.containsKey(dateStr)) {
+                            itemMap.get(dateStr).setInVault(true);
+                        } else {
+                            SdkRuntimeSession vaultSession = new SdkRuntimeSession();
+                            vaultSession.setLogDate(dateStr);
+                            itemMap.put(dateStr, new DeveloperLogItem<>(vaultSession, true, false));
+                        }
                     }
                 }
 
@@ -278,18 +290,14 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
                     allItems.clear();
                     allItems.addAll(newItems);
                     filterAndUpdateTable();
-                    if (sessionTable != null) {
-                        sessionTable.packAll();
-                    }
+
                 });
 
             } catch (Exception e) {
                 logger.error("Error loading SDK Runtime sessions", e);
                 SwingUtilities.invokeLater(() -> {
                     filterAndUpdateTable();
-                    if (sessionTable != null) {
-                        sessionTable.packAll();
-                    }
+
                 });
             }
         }).start();
@@ -364,7 +372,7 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
 
         if (selectedSessions.isEmpty()) return;
 
-        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/runtime/" + toolboxProject.getVaultId());
+        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/runtime/" + getSelectedVaultId());
         List<File> allCsvFiles = new ArrayList<>();
 
         for (DeveloperLogItem<SdkRuntimeSession> item : selectedSessions) {
@@ -403,7 +411,7 @@ public class DeveloperRuntimeSessionPanel extends AbstractDeveloperSessionPanel<
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete local files for " + selectedSessions.size() + " session(s)?", "Confirm Local Delete", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/runtime/" + toolboxProject.getVaultId());
+        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/runtime/" + getSelectedVaultId());
 
         for (DeveloperLogItem<SdkRuntimeSession> item : selectedSessions) {
             if (item.isLocal()) {

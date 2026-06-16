@@ -21,7 +21,7 @@ import com.veeva.vault.toolbox.intellij.ui.fileviewer.FileViewerDialog;
 import com.veeva.vault.vapil.api.model.response.QueryResponse;
 import com.veeva.vault.vapil.api.request.QueryRequest;
 import org.apache.commons.io.FileUtils;
-import org.jdesktop.swingx.JXTable;
+import com.intellij.ui.table.JBTable;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -67,8 +67,6 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
             }
         });
 
-        deploymentTable.setSortOrder(7, SortOrder.DESCENDING);
-
         MouseAdapter localMouseAdapter = new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -84,7 +82,7 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                         String packageName = item.getItem().getString("name__v");
 
                         if (packageId != null) {
-                            File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
+                            File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + toolboxProject.getVaultId() + "/" + packageName + "." + packageId);
 
                             if (logDir.exists()) {
                                 boolean isActionIcon = "View".equals(colName) || "Locate".equals(colName);
@@ -156,7 +154,7 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
      * @param table The table to configure.
      */
     @Override
-    protected void setupColumnWidths(JXTable table) {
+    protected void setupColumnWidths(JBTable table) {
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 
         TableCellRenderer defaultIconRenderer = table.getDefaultRenderer(Icon.class);
@@ -223,7 +221,7 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                     String packageId = qr.getString("id");
                     String packageName = qr.getString("name__v");
                     if (packageId != null) {
-                        File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
+                        File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + toolboxProject.getVaultId() + "/" + packageName + "." + packageId);
                         if (logDir.exists() && logDir.isDirectory() && logDir.list() != null && logDir.list().length > 0) {
                             if (downloadsRemaining.decrementAndGet() == 0) {
                                 onAllDownloadsComplete.run();
@@ -271,7 +269,7 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                             String packageId = item.getItem().getString("id");
                             String packageName = item.getItem().getString("name__v");
                             if (packageId != null) {
-                                File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
+                                File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + toolboxProject.getVaultId() + "/" + packageName + "." + packageId);
                                 if (logDir.exists()) {
                                     try {
                                         FileUtils.deleteDirectory(logDir);
@@ -347,7 +345,7 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                     for (QueryResponse.QueryResult row : response.getData()) {
                         String packageId = row.getString("id");
                         String packageName = row.getString("name__v");
-                        File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + packageName + "." + packageId);
+                        File logDir = new File(toolboxProject.getLogsDirectory(), "deployment/" + toolboxProject.getVaultId() + "/" + packageName + "." + packageId);
                         boolean isLocal = logDir.exists() && logDir.isDirectory() && logDir.list() != null && logDir.list().length > 0;
                         newItems.add(new DeploymentItem<>(row, true, isLocal));
                     }
@@ -372,9 +370,7 @@ public class InboundPackagesPanel extends AbstractDeploymentPanel<QueryResponse.
                     }
                     filterAndUpdateTable();
 
-                    if (deploymentTable != null) {
-                        deploymentTable.packAll();
-                    }
+
                 });
             } catch (Exception e) {
                 if (toolboxProject.handleSessionExpiration(e)) {

@@ -9,7 +9,10 @@ import com.intellij.openapi.ui.ValidationInfo;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.ui.components.JBPanel;
 import com.intellij.ui.components.JBTabbedPane;
+import com.intellij.ui.components.JBTextField;
+import com.intellij.util.ui.FormBuilder;
 import com.veeva.vault.toolbox.core.config.VaultPackage;
 import com.veeva.vault.toolbox.core.models.VpkBuildManifest;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
@@ -36,24 +39,52 @@ public class DesignPackageDialog extends DialogWrapper {
     private static final Logger logger = LoggerFactory.getLogger(DesignPackageDialog.class);
     private static final String DEFAULT_JAVA_PATH = "/src/main/java/com/veeva/vault/custom";
 
+    /** The associated toolbox project. */
     private final ToolboxProject toolboxProject;
+    
+    /** The manifest file for the package. */
     private File manifestFile;
+    
+    /** The build manifest model. */
     private VpkBuildManifest buildManifest = null;
 
-    private final JPanel mainPanel = new JPanel(new BorderLayout());
-    private final JPanel detailsTab = new JPanel(new GridLayout(12, 2));
-    private final JPanel javaSdkTab = new JPanel(new GridLayout(12, 2));
-    private final JPanel componentsTab = new JPanel(new BorderLayout());
-    private final JPanel webSdkTab = new JPanel(new BorderLayout());
+    /** The main panel of the dialog. */
+    private final JBPanel<?> mainPanel = new JBPanel<>(new BorderLayout());
+    
+    /** The panel for the details tab. */
+    private JPanel detailsTab;
+    
+    /** The panel for the Java SDK tab. */
+    private JPanel javaSdkTab;
+    
+    /** The panel for the components tab. */
+    private final JBPanel<?> componentsTab = new JBPanel<>(new BorderLayout());
+    
+    /** The panel for the Web SDK tab. */
+    private final JBPanel<?> webSdkTab = new JBPanel<>(new BorderLayout());
 
-    private final JTextField nameField = new JTextField(15);
-    private final JTextField authorField = new JTextField(15);
-    private final JTextField summaryField = new JTextField(15);
-    private final JTextField descriptionField = new JTextField(15);
+    /** Text field for the package name. */
+    private final JBTextField nameField = new JBTextField();
+    
+    /** Text field for the package author. */
+    private final JBTextField authorField = new JBTextField();
+    
+    /** Text field for the package summary. */
+    private final JBTextField summaryField = new JBTextField();
+    
+    /** Text field for the package description. */
+    private final JBTextField descriptionField = new JBTextField();
 
+    /** Checkbox indicating if the Java SDK should be included. */
     private final JCheckBox includeSdk = new JCheckBox();
+    
+    /** Field for selecting the Java SDK path. */
     private final TextFieldWithBrowseButton sdkPath = new TextFieldWithBrowseButton();
+    
+    /** Dropdown for selecting deployment options. */
     private final JXComboBox deploymentOptions = new JXComboBox();
+    
+    /** The tabbed pane containing configuration options. */
     private final JBTabbedPane optionsTabbedPane = new JBTabbedPane();
 
     /**
@@ -88,11 +119,19 @@ public class DesignPackageDialog extends DialogWrapper {
         return (VaultPackage.JavaSdk.DeploymentOption) deploymentOptions.getSelectedItem();
     }
 
+    /**
+     * Validates the dialog inputs.
+     *
+     * @return ValidationInfo if validation fails, null otherwise.
+     */
     @Override
     protected @Nullable ValidationInfo doValidate() {
         return super.doValidate();
     }
 
+    /**
+     * Handles the OK action, persisting changes.
+     */
     @Override
     protected void doOKAction() {
         if (toolboxProject != null) {
@@ -101,16 +140,15 @@ public class DesignPackageDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * Creates the center panel of the dialog containing the tabs.
+     *
+     * @return The created center panel.
+     */
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
         this.mainPanel.setMinimumSize(new Dimension(500, 500));
-        optionsTabbedPane.addTab("Details", detailsTab);
-        optionsTabbedPane.addTab("Java SDK", javaSdkTab);
-        optionsTabbedPane.addTab("Components & Data", componentsTab);
-        optionsTabbedPane.addTab("Web SDK", webSdkTab);
-
-        mainPanel.add(optionsTabbedPane);
 
         if (manifestFile != null && manifestFile.exists()) {
             buildManifest = VpkBuildManifest.load(this.manifestFile);
@@ -121,13 +159,9 @@ public class DesignPackageDialog extends DialogWrapper {
             buildManifest.setDescription("Package Description");
         }
 
-        detailsTab.add(new JLabel("Name:"));
         nameField.setText(buildManifest.getName() != null ? buildManifest.getName().toUpperCase() : "");
-        detailsTab.add(nameField);
 
-        detailsTab.add(new JLabel("Author:"));
         String currentAuthor = "";
-
         if (buildManifest.getAuthor() != null && !buildManifest.getAuthor().trim().isEmpty()) {
             currentAuthor = buildManifest.getAuthor();
         } else {
@@ -140,28 +174,32 @@ public class DesignPackageDialog extends DialogWrapper {
                 }
             }
         }
-
         authorField.setText(currentAuthor);
-        detailsTab.add(authorField);
 
-        detailsTab.add(new JLabel("Summary:"));
         summaryField.setText(buildManifest.getSummary());
-        detailsTab.add(summaryField);
-        detailsTab.add(new JLabel("Description:"));
         descriptionField.setText(buildManifest.getDescription());
-        detailsTab.add(descriptionField);
+
+        detailsTab = FormBuilder.createFormBuilder()
+                .addLabeledComponent("Name:", nameField, 5, true)
+                .addLabeledComponent("Author:", authorField, 5, true)
+                .addLabeledComponent("Summary:", summaryField, 5, true)
+                .addLabeledComponent("Description:", descriptionField, 5, true)
+                .addComponentFillVertically(new JBPanel<>(), 0)
+                .getPanel();
+        detailsTab.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         includeSdk.setText("Include Java SDK");
-        javaSdkTab.add(includeSdk);
-
-        javaSdkTab.add(new JLabel("SDK Path:"));
-        javaSdkTab.add(sdkPath);
-        javaSdkTab.add(new JLabel("Deployment Options:"));
-        javaSdkTab.add(deploymentOptions);
-
         deploymentOptions.addItem(VaultPackage.JavaSdk.DeploymentOption.REPLACE_ALL);
         deploymentOptions.addItem(VaultPackage.JavaSdk.DeploymentOption.INCREMENTAL);
         deploymentOptions.addItem(VaultPackage.JavaSdk.DeploymentOption.DELETE_ALL);
+
+        javaSdkTab = FormBuilder.createFormBuilder()
+                .addComponent(includeSdk, 5)
+                .addLabeledComponent("SDK Path:", sdkPath, 5, true)
+                .addLabeledComponent("Deployment Options:", deploymentOptions, 5, true)
+                .addComponentFillVertically(new JBPanel<>(), 0)
+                .getPanel();
+        javaSdkTab.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         if (buildManifest.getJavaSdk() != null) {
             includeSdk.setSelected(true);
@@ -171,6 +209,13 @@ public class DesignPackageDialog extends DialogWrapper {
 
         componentsTab.add(new ComponentTreePanel(toolboxProject, buildManifest), BorderLayout.CENTER);
         webSdkTab.add(new DistributionTreePanel(toolboxProject, buildManifest), BorderLayout.CENTER);
+
+        optionsTabbedPane.addTab("Details", detailsTab);
+        optionsTabbedPane.addTab("Java SDK", javaSdkTab);
+        optionsTabbedPane.addTab("Components & Data", componentsTab);
+        optionsTabbedPane.addTab("Web SDK", webSdkTab);
+
+        mainPanel.add(optionsTabbedPane);
 
         FileChooserDescriptor fileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileOrFolderDescriptor();
         fileChooserDescriptor.setForcedToUseIdeaFileChooser(true);
@@ -204,6 +249,12 @@ public class DesignPackageDialog extends DialogWrapper {
         return mainPanel;
     }
 
+    /**
+     * Retrieves the SDK folders for the project.
+     *
+     * @param parent The parent virtual file.
+     * @return A list of virtual files representing the SDK folders.
+     */
     private List<VirtualFile> getSdkFolders(VirtualFile parent) {
         return Sdk.getSdkFolders(toolboxProject, parent);
     }
@@ -234,6 +285,11 @@ public class DesignPackageDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * Creates the dialog actions.
+     *
+     * @return an array of actions
+     */
     @NotNull
     @Override
     protected Action[] createActions() {
@@ -241,10 +297,15 @@ public class DesignPackageDialog extends DialogWrapper {
         return new Action[] { getOKAction(), getCancelAction() };
     }
 
+    /**
+     * Creates the left-side dialog actions.
+     *
+     * @return an array of actions
+     */
     @NotNull
     @Override
     protected Action[] createLeftSideActions() {
-        return new Action[] {  };
+        return new Action[0];
     }
 
     /**

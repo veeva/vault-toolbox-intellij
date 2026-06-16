@@ -55,6 +55,12 @@ public class DropSdkTask extends ToolboxTask {
 					vaultResponse = toolboxProject.getVaultClient().newRequest(SDKRequest.class)
 							.setBinaryFile(psiFile.getName(), psiFile.getText().getBytes(StandardCharsets.UTF_8))
 							.deleteSingleSourceCodeFile(className);
+					if (vaultResponse != null && vaultResponse.isFailure()) {
+						if (toolboxProject.handleSessionExpiration(vaultResponse)) {
+							vaultResponse = null;
+							return;
+						}
+					}
 					if (vaultResponse != null && !vaultResponse.isFailure()) {
 						toolboxProject.removeFile(psiFile.getVirtualFile().getPath());
 					}

@@ -1,0 +1,42 @@
+<html>
+<body>
+<p>
+  Reports multi-threading constructs that are forbidden in the Vault Java SDK sandbox.
+  The SDK runtime is single-threaded; spawning threads or using synchronization primitives
+  will cause unpredictable behavior or a deployment error.
+</p>
+
+<p><b>What is flagged:</b></p>
+<ul>
+  <li>Imports of <code>java.lang.Thread</code>, <code>java.lang.ThreadLocal</code>, or anything in <code>java.util.concurrent</code></li>
+  <li><code>new Thread(...)</code>, <code>new ThreadLocal&lt;&gt;()</code>, <code>new CompletableFuture&lt;&gt;()</code>, etc.</li>
+  <li>Classes that <code>extend Thread</code></li>
+  <li><code>synchronized</code> methods and <code>synchronized(...)</code> blocks</li>
+  <li>
+    <code>Thread.sleep()</code>, <code>Thread.yield()</code>, <code>Thread.interrupted()</code>,
+    <code>Thread.currentThread()</code> — these are in <code>java.lang</code> and require no import,
+    so they are caught by method-call resolution rather than import scanning
+  </li>
+</ul>
+
+<p><b>Example violations:</b></p>
+<pre>
+import java.util.concurrent.ExecutorService;   // flagged
+
+public class MyAction implements RecordAction {
+    public synchronized void execute(RecordActionContext context) {  // flagged
+        ExecutorService executor = Executors.newSingleThreadExecutor();  // flagged
+
+        // flagged — no import needed, caught via method resolution
+        Thread.sleep(1000);
+    }
+}
+</pre>
+
+<p><b>Recommended alternative:</b></p>
+<p>
+  Use <code>ServiceLocator.locate(RuntimeService.class).sleep(ms)</code> for delays.
+  For background processing, use the Vault SDK <code>JobService</code> instead of raw threads.
+</p>
+</body>
+</html>

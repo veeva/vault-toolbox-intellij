@@ -72,6 +72,7 @@ public class VaultPackage extends VaultModel {
             ".csv", ".dep", ".java", ".json", ".mdl", ".md5",
             ".xml", ".js", ".css", ".png", ".jpg");
 
+    /** XML namespace for the Vault Package manifest. */
     @JacksonXmlProperty(isAttribute = true)
     private String xmlns = "https://veevavault.com/";
 
@@ -99,6 +100,7 @@ public class VaultPackage extends VaultModel {
     @JacksonXmlProperty(localName = "javasdk")
     private JavaSdk javaSdk;
 
+    /** The authenticated Vault API client used for deployment operations. */
     private final VaultClient vaultClient;
 
     /**
@@ -112,66 +114,131 @@ public class VaultPackage extends VaultModel {
         this.vaultClient = vaultClient;
     }
 
+    /**
+     * Gets the name of the package.
+     *
+     * @return the package name
+     */
     @JsonGetter
     public String getName() {
         return name;
     }
 
+    /**
+     * Sets the name of the package.
+     *
+     * @param name the new package name
+     */
     @JsonSetter
     public void setName(String name) {
         this.name = name;
     }
 
+    /**
+     * Gets the source of the package.
+     *
+     * @return the package source
+     */
     @JsonGetter
     public Source getSource() {
         return source;
     }
 
+    /**
+     * Sets the source of the package.
+     *
+     * @param source the new package source
+     */
     @JsonSetter
     public void setSource(Source source) {
         this.source = source;
     }
 
+    /**
+     * Gets the package type.
+     *
+     * @return the package type
+     */
     @JsonGetter
     public String getPackageType() {
         return packageType;
     }
 
+    /**
+     * Sets the package type as a string.
+     *
+     * @param packageType the new package type
+     */
     @JsonAnySetter
     public void setPackageType(String packageType) {
         this.packageType = packageType;
     }
 
+    /**
+     * Sets the package type.
+     *
+     * @param packageType the new package type
+     */
     @JsonIgnore
     public void setPackageType(PackageType packageType) {
         this.packageType = packageType.getValue();
     }
 
+    /**
+     * Gets the summary of the package.
+     *
+     * @return the package summary
+     */
     @JsonGetter
     public String getSummary() {
         return summary;
     }
 
+    /**
+     * Sets the summary of the package.
+     *
+     * @param summary the new summary
+     */
     @JsonSetter
     public void setSummary(String summary) {
         this.summary = summary;
     }
 
+    /**
+     * Gets the description of the package.
+     *
+     * @return the package description
+     */
     @JsonGetter
     public String getDescription() {
         return description;
     }
 
+    /**
+     * Sets the description of the package.
+     *
+     * @param description the new description
+     */
     @JsonSetter
     public void setDescription(String description) {
         this.description = description;
     }
 
+    /**
+     * Gets the Java SDK configuration.
+     *
+     * @return the Java SDK configuration
+     */
     @JsonGetter
     public JavaSdk getJavaSdk() {
         return javaSdk;
     }
 
+    /**
+     * Sets the Java SDK configuration.
+     *
+     * @param javaSdk the new Java SDK configuration
+     */
     @JsonSetter
     public void setJavaSdk(JavaSdk javaSdk) {
         this.javaSdk = javaSdk;
@@ -265,7 +332,7 @@ public class VaultPackage extends VaultModel {
             setJavaSdk(new JavaSdk());
             getJavaSdk().setDeploymentOption(buildManifestJavaSdk.getDeploymentOption());
 
-            String localPath = buildManifestJavaSdk.getPath();
+            String localPath = buildManifestJavaSdk.getPath().replace('\\', '/');
             localPath = localPath.substring(localPath.lastIndexOf("src/main/java/com/veeva/vault/custom"));
             File javaSdkBuildDirectory = new File(buildDirectory.getPath(), "javasdk/" + localPath);
             copyFiles(new File(relativePath.getPath(), buildManifestJavaSdk.getPath()), javaSdkBuildDirectory);
@@ -426,6 +493,12 @@ public class VaultPackage extends VaultModel {
         return deploymentResult;
     }
 
+    /**
+     * Describes the error contained within a job creation response.
+     *
+     * @param response the job creation response
+     * @return the error message
+     */
     private static String describeJobError(JobCreateResponse response) {
         String message = response.getResponseMessage();
         if (response.getErrors() != null && !response.getErrors().isEmpty()) {
@@ -434,6 +507,12 @@ public class VaultPackage extends VaultModel {
         return message;
     }
 
+    /**
+     * Extracts the package ID from the given href string.
+     *
+     * @param href the href string
+     * @return the extracted package ID
+     */
     private static String extractPackageId(String href) {
         int start = href.lastIndexOf(PACKAGE_PATH_TOKEN) + PACKAGE_PATH_TOKEN.length();
         int end = href.lastIndexOf(IMPORT_RESULTS_PATH_TOKEN);
@@ -928,10 +1007,20 @@ public class VaultPackage extends VaultModel {
 
         private final String value;
 
+        /**
+         * Constructs the PackageType.
+         *
+         * @param value the string value
+         */
         PackageType(String value) {
             this.value = value;
         }
 
+        /**
+         * Gets the string value of the package type.
+         *
+         * @return the string value
+         */
         public String getValue() {
             return value;
         }
@@ -952,10 +1041,20 @@ public class VaultPackage extends VaultModel {
 
             private final String value;
 
+            /**
+             * Constructs the DeploymentOption.
+             *
+             * @param value the string value
+             */
             DeploymentOption(String value) {
                 this.value = value;
             }
 
+            /**
+             * Gets the string value of the deployment option.
+             *
+             * @return the string value
+             */
             public String getValue() {
                 return value;
             }
@@ -964,26 +1063,50 @@ public class VaultPackage extends VaultModel {
         @JacksonXmlProperty(localName = "deployment_option")
         private String deploymentOption;
 
+        /**
+         * Constructs a new JavaSdk.
+         */
         @JsonIgnore
         public JavaSdk() {
         }
 
+        /**
+         * Constructs a new JavaSdk with the given deployment option.
+         *
+         * @param deploymentOption the deployment option
+         */
         @JsonIgnore
         public JavaSdk(DeploymentOption deploymentOption) {
             setDeploymentOption(deploymentOption);
         }
 
+        /**
+         * Gets the deployment option.
+         *
+         * @return the deployment option
+         */
         @JsonGetter
         public String getDeploymentOption() {
             return deploymentOption;
         }
 
+        /**
+         * Sets the deployment option.
+         *
+         * @param deploymentOption the new deployment option
+         * @return this JavaSdk instance
+         */
         @JsonAnySetter
         public JavaSdk setDeploymentOption(String deploymentOption) {
             this.deploymentOption = deploymentOption;
             return this;
         }
 
+        /**
+         * Sets the deployment option using the enum.
+         *
+         * @param deploymentOption the new deployment option
+         */
         @JsonIgnore
         public void setDeploymentOption(DeploymentOption deploymentOption) {
             this.deploymentOption = deploymentOption.getValue();
@@ -999,21 +1122,41 @@ public class VaultPackage extends VaultModel {
         @JacksonXmlProperty(localName = "author")
         private String author;
 
+        /**
+         * Gets the vault ID.
+         *
+         * @return the vault ID
+         */
         @JsonGetter
         public Integer getVault() {
             return vault;
         }
 
+        /**
+         * Sets the vault ID.
+         *
+         * @param vault the new vault ID
+         */
         @JsonSetter
         public void setVault(Integer vault) {
             this.vault = vault;
         }
 
+        /**
+         * Gets the author.
+         *
+         * @return the author
+         */
         @JsonGetter
         public String getAuthor() {
             return author;
         }
 
+        /**
+         * Sets the author.
+         *
+         * @param author the new author
+         */
         @JsonSetter
         public void setAuthor(String author) {
             this.author = author;

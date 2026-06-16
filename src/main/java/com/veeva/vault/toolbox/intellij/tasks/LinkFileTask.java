@@ -1,5 +1,6 @@
 package com.veeva.vault.toolbox.intellij.tasks;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiFile;
@@ -10,11 +11,13 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Toggles whether a file (or directory of files) is tracked by the toolbox. When
- * tracking is being enabled, only Java SDK and MDL files are added; directories are
+ * tracking is enabled, only Java SDK and MDL files are added; directories are
  * always traversed recursively.
  */
 public class LinkFileTask extends ToolboxTask {
@@ -45,7 +48,11 @@ public class LinkFileTask extends ToolboxTask {
 	public void run(@NotNull ProgressIndicator indicator) {
 		try {
 			if (toolboxProject != null) {
-				toggleLink(psiFile);
+				List<String> toRemove = new ArrayList<>();
+				List<String> toInclude = new ArrayList<>();
+				ApplicationManager.getApplication().runReadAction(() -> collectPaths(psiFile, toRemove, toInclude));
+				toRemove.forEach(toolboxProject::removeFile);
+				toInclude.forEach(toolboxProject::includeFile);
 			}
 		}
 		catch (Exception e) {
@@ -54,25 +61,30 @@ public class LinkFileTask extends ToolboxTask {
 	}
 
 	/**
-	 * Toggles the link state of the given file or directory.
+	 * Collects the paths to include or remove based on the link state.
+	 * Must be called inside a read action.
 	 *
-	 * @param currentPsiFile the file or directory to toggle
+	 * @param currentPsiFile the file or directory to process
+	 * @param toRemove       paths to unlink
+	 * @param toInclude      paths to link
 	 */
-	private void toggleLink(PsiFile currentPsiFile) {
+	private void collectPaths(PsiFile currentPsiFile, List<String> toRemove, List<String> toInclude) {
 		if (currentPsiFile.isDirectory()) {
+			String path = currentPsiFile.getVirtualFile().getPath();
 			if (isLinked) {
-				toolboxProject.removeFile(currentPsiFile.getVirtualFile().getPath());
+				toRemove.add(path);
 			} else {
-				toolboxProject.includeFile(currentPsiFile.getVirtualFile().getPath());
+				toInclude.add(path);
 			}
-			Arrays.stream(currentPsiFile.getChildren()).forEach(child -> toggleLink((PsiFile) child));
+			Arrays.stream(currentPsiFile.getChildren()).forEach(child -> collectPaths((PsiFile) child, toRemove, toInclude));
 			return;
 		}
 
+		String path = currentPsiFile.getVirtualFile().getPath();
 		if (isLinked) {
-			toolboxProject.removeFile(currentPsiFile.getVirtualFile().getPath());
+			toRemove.add(path);
 		} else if (psiFile instanceof PsiJavaFile || psiFile instanceof MdlFile) {
-			toolboxProject.includeFile(currentPsiFile.getVirtualFile().getPath());
+			toInclude.add(path);
 		}
 	}
 }

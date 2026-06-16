@@ -1,0 +1,47 @@
+<html>
+<body>
+<p>
+  Reports any import or use of the <code>java.lang.reflect</code> package, as well as
+  direct calls to reflection entry points on <code>java.lang.Class</code> such as
+  <code>getClass().getMethod()</code> or <code>Class.forName()</code>.
+  The Vault Java SDK sandbox does not permit runtime reflection — attempting to
+  deploy code that uses it will result in a deployment error.
+</p>
+
+<p><b>What is flagged:</b></p>
+<ul>
+  <li><code>import java.lang.reflect.*</code> or any specific class from that package</li>
+  <li><code>Class.forName(...)</code></li>
+  <li><code>obj.getClass().getMethod(...)</code>, <code>.getDeclaredMethod()</code>, <code>.getMethods()</code>, etc.</li>
+  <li><code>obj.getClass().getField(...)</code>, <code>.getDeclaredField()</code>, <code>.getFields()</code>, etc.</li>
+  <li><code>obj.getClass().getConstructor(...)</code>, <code>.newInstance()</code>, etc.</li>
+  <li><code>obj.getClass().getAnnotation(...)</code> and related annotation-inspection methods</li>
+  <li><code>SomeClass.class.getDeclaredMethods()</code> and similar class-literal chains</li>
+</ul>
+
+<p><b>Example violations:</b></p>
+<pre>
+import java.lang.reflect.Method;   // flagged — import
+
+public class MyTrigger implements RecordTrigger {
+    public void execute(RecordTriggerContext context) {
+        // flagged — getMethod() resolves to java.lang.Class, no import needed
+        record.getClass().getMethod("getValue", String.class, Class.class);
+
+        // flagged — Class.forName() is a reflection entry point
+        Class&lt;?&gt; clazz = Class.forName("com.example.MyHelper");
+
+        // flagged — class literal chained with a reflect API call
+        MyHelper.class.getDeclaredFields();
+    }
+}
+</pre>
+
+<p><b>Recommended alternative:</b></p>
+<p>
+  Use the strongly-typed Vault SDK service APIs directly.
+  All record field access is available via <code>Record.getValue(field, ValueType)</code>
+  and <code>Record.setValue(field, value)</code>.
+</p>
+</body>
+</html>

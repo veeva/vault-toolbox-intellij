@@ -39,6 +39,9 @@ public final class AppSettingsConfigurable implements Configurable {
      */
     @Override
     public JComponent getPreferredFocusedComponent() {
+        if (appSettingsComponent == null) {
+            return null;
+        }
         return appSettingsComponent.getPreferredFocusedComponent();
     }
 
@@ -51,7 +54,33 @@ public final class AppSettingsConfigurable implements Configurable {
     @Override
     public JComponent createComponent() {
         appSettingsComponent = new AppSettingsControl();
+        reset();
         return appSettingsComponent.getPanel();
+    }
+
+    private boolean isSdkInspectionsEnabledCurrently() {
+        com.intellij.openapi.project.Project[] openProjects = com.intellij.openapi.project.ProjectManager.getInstance().getOpenProjects();
+        if (openProjects.length > 0) {
+            com.intellij.openapi.project.Project project = openProjects[0];
+            com.intellij.codeInspection.ex.InspectionProfileImpl profile = com.intellij.profile.codeInspection.InspectionProjectProfileManager.getInstance(project).getCurrentProfile();
+            com.intellij.codeInspection.ex.Tools tools = profile.getToolsOrNull("VaultSdkFileIo", project);
+            if (tools != null) {
+                return tools.isEnabled();
+            }
+        }
+        return false;
+    }
+
+    private void applySdkInspectionsEnabled(boolean enabled) {
+        com.intellij.openapi.project.Project[] openProjects = com.intellij.openapi.project.ProjectManager.getInstance().getOpenProjects();
+        if (openProjects.length > 0) {
+            com.intellij.openapi.project.Project project = openProjects[0];
+            com.intellij.codeInspection.ex.InspectionProfileImpl profile = com.intellij.profile.codeInspection.InspectionProjectProfileManager.getInstance(project).getCurrentProfile();
+            String[] tools = {"VaultSdkFileIo", "VaultSdkReflection", "VaultSdkNetwork", "VaultSdkCollections", "VaultSdkThreading", "VaultSdkStaticState"};
+            for (String tool : tools) {
+                profile.setToolEnabled(tool, enabled, project);
+            }
+        }
     }
 
     /**
@@ -61,14 +90,19 @@ public final class AppSettingsConfigurable implements Configurable {
      */
     @Override
     public boolean isModified() {
+        if (appSettingsComponent == null) {
+            return false;
+        }
         AppSettings.AppState state = Objects.requireNonNull(AppSettings.getInstance().getState());
         return appSettingsComponent.getAutoConnectField() != state.autoConnect
                 || !appSettingsComponent.getVaultDns().equals(state.vaultDNS)
                 || !appSettingsComponent.getAuthenticationType().equals(state.authenticationType)
                 || !appSettingsComponent.getUsername().equals(state.username)
                 || appSettingsComponent.getCsvMaxRows() != state.csvMaxRows
+                || appSettingsComponent.getOpenLogsInDesktop() != state.openLogsInDesktop
                 || appSettingsComponent.getConnectionTimeout() != state.connectionTimeout
                 || appSettingsComponent.getAllowAllCertificates() != state.allowAllCertificates
+                || appSettingsComponent.getEnableSdkInspections() != isSdkInspectionsEnabledCurrently()
                 || !appSettingsComponent.getSavedCredentials().equals(state.savedCredentials);
     }
 
@@ -77,6 +111,9 @@ public final class AppSettingsConfigurable implements Configurable {
      */
     @Override
     public void apply() {
+        if (appSettingsComponent == null) {
+            return;
+        }
         AppSettings.AppState appState = Objects.requireNonNull(AppSettings.getInstance().getState());
 
         if (appSettingsComponent.getAllowAllCertificates() != appState.allowAllCertificates) {
@@ -93,9 +130,14 @@ public final class AppSettingsConfigurable implements Configurable {
         appState.authenticationType = appSettingsComponent.getAuthenticationType();
         appState.username = appSettingsComponent.getUsername();
         appState.csvMaxRows = appSettingsComponent.getCsvMaxRows();
+        appState.openLogsInDesktop = appSettingsComponent.getOpenLogsInDesktop();
         appState.connectionTimeout = appSettingsComponent.getConnectionTimeout();
         appState.allowAllCertificates = appSettingsComponent.getAllowAllCertificates();
         appState.savedCredentials = new java.util.ArrayList<>(appSettingsComponent.getSavedCredentials());
+
+        if (appSettingsComponent.getEnableSdkInspections() != isSdkInspectionsEnabledCurrently()) {
+            applySdkInspectionsEnabled(appSettingsComponent.getEnableSdkInspections());
+        }
     }
 
     /**
@@ -103,14 +145,19 @@ public final class AppSettingsConfigurable implements Configurable {
      */
     @Override
     public void reset() {
+        if (appSettingsComponent == null) {
+            return;
+        }
         AppSettings.AppState appState = Objects.requireNonNull(AppSettings.getInstance().getState());
         appSettingsComponent.setAutoConnectField(appState.autoConnect);
         appSettingsComponent.setVaultDns(appState.vaultDNS);
         appSettingsComponent.setAuthenticationType(appState.authenticationType);
         appSettingsComponent.setUsername(appState.username);
         appSettingsComponent.setCsvMaxRows(appState.csvMaxRows);
+        appSettingsComponent.setOpenLogsInDesktop(appState.openLogsInDesktop);
         appSettingsComponent.setConnectionTimeout(appState.connectionTimeout);
         appSettingsComponent.setAllowAllCertificates(appState.allowAllCertificates);
+        appSettingsComponent.setEnableSdkInspections(isSdkInspectionsEnabledCurrently());
         appSettingsComponent.setSavedCredentials(new java.util.ArrayList<>(appState.savedCredentials));
     }
 

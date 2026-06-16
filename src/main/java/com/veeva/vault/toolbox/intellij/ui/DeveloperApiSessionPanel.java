@@ -70,7 +70,7 @@ public class DeveloperApiSessionPanel extends AbstractDeveloperSessionPanel<SdkA
                     DeveloperLogItem<SdkApiSession> item = allItems.get(sessionTable.convertRowIndexToModel(row));
 
                     if (item.isLocal()) {
-                        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/api/" + toolboxProject.getVaultId());
+                        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/api/" + getSelectedVaultId());
                         File dateDir = new File(vaultLogsDir, item.getItem().getLogDate());
 
                         if (dateDir.exists()) {
@@ -154,6 +154,11 @@ public class DeveloperApiSessionPanel extends AbstractDeveloperSessionPanel<SdkA
     }
 
     @Override
+    protected String getLogTypeSubdir() {
+        return "api";
+    }
+
+    @Override
     protected String[] getColumnNames() {
         return new String[]{"Select", "API Date", "View", "Locate"};
     }
@@ -228,6 +233,10 @@ public class DeveloperApiSessionPanel extends AbstractDeveloperSessionPanel<SdkA
 
         actionGroup.addSeparator();
 
+        actionGroup.add(createImportAction(DeveloperLogsDialog.LogType.API_USAGE));
+
+        actionGroup.addSeparator();
+
         actionGroup.add(new AnAction("Refresh", "Refresh list", AllIcons.Actions.Refresh) {
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
@@ -245,8 +254,9 @@ public class DeveloperApiSessionPanel extends AbstractDeveloperSessionPanel<SdkA
     public void loadData() {
         new Thread(() -> {
             try {
+                String selectedVaultId = getSelectedVaultId();
                 Map<String, DeveloperLogItem<SdkApiSession>> itemMap = new HashMap<>();
-                File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/api/" + toolboxProject.getVaultId());
+                File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/api/" + selectedVaultId);
 
                 if (vaultLogsDir.exists()) {
                     try {
@@ -269,16 +279,18 @@ public class DeveloperApiSessionPanel extends AbstractDeveloperSessionPanel<SdkA
                     }
                 }
 
-                LocalDate today = LocalDate.now(ZoneId.of("UTC"));
-                for (int i = 0; i < 30; i++) {
-                    String dateStr = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(today.minusDays(i));
+                if (isOnConnectedVault()) {
+                    LocalDate today = LocalDate.now(ZoneId.of("UTC"));
+                    for (int i = 0; i < 30; i++) {
+                        String dateStr = DateTimeFormatter.ofPattern("yyyy-MM-dd").format(today.minusDays(i));
 
-                    if (itemMap.containsKey(dateStr)) {
-                        itemMap.get(dateStr).setInVault(true);
-                    } else {
-                        SdkApiSession vaultSession = new SdkApiSession();
-                        vaultSession.setLogDate(dateStr);
-                        itemMap.put(dateStr, new DeveloperLogItem<>(vaultSession, true, false));
+                        if (itemMap.containsKey(dateStr)) {
+                            itemMap.get(dateStr).setInVault(true);
+                        } else {
+                            SdkApiSession vaultSession = new SdkApiSession();
+                            vaultSession.setLogDate(dateStr);
+                            itemMap.put(dateStr, new DeveloperLogItem<>(vaultSession, true, false));
+                        }
                     }
                 }
 
@@ -289,18 +301,14 @@ public class DeveloperApiSessionPanel extends AbstractDeveloperSessionPanel<SdkA
                     allItems.clear();
                     allItems.addAll(newItems);
                     filterAndUpdateTable();
-                    if (sessionTable != null) {
-                        sessionTable.packAll();
-                    }
+
                 });
 
             } catch (Exception e) {
                 logger.error("Error loading API Usage sessions", e);
                 SwingUtilities.invokeLater(() -> {
                     filterAndUpdateTable();
-                    if (sessionTable != null) {
-                        sessionTable.packAll();
-                    }
+
                     JOptionPane.showMessageDialog(this, "An error occurred while loading sessions.", "Error", JOptionPane.ERROR_MESSAGE);
                 });
             }
@@ -341,7 +349,7 @@ public class DeveloperApiSessionPanel extends AbstractDeveloperSessionPanel<SdkA
         List<DeveloperLogItem<SdkApiSession>> selectedSessions = getSelectedItems();
         if (selectedSessions.isEmpty()) return;
 
-        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/api/" + toolboxProject.getVaultId());
+        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/api/" + getSelectedVaultId());
         List<File> csvFiles = new ArrayList<>();
 
         for (DeveloperLogItem<SdkApiSession> item : selectedSessions) {
@@ -377,7 +385,7 @@ public class DeveloperApiSessionPanel extends AbstractDeveloperSessionPanel<SdkA
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete local files for " + selectedSessions.size() + " session(s)?", "Confirm Local Delete", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/api/" + toolboxProject.getVaultId());
+        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/api/" + getSelectedVaultId());
 
         for (DeveloperLogItem<SdkApiSession> item : selectedSessions) {
             if (item.isLocal()) {

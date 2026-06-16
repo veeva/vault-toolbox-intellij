@@ -9,13 +9,15 @@ deployment, and debugging workflows directly into your local development environ
 <br/>
 <b>Features:</b>
 <ul>
-    <li>Manage and switch between multiple Vault environments.</li>
+    <li>Manage and switch between multiple Vault environments (Dev, QA, Prod Vaults and PVMs), including securely saved credentials.</li>
+    <li>Compare Vaults to identify MDL and SDK differences between environments.</li>
     <li>Extract MDL, Vault Packages (VPK), and Vault SDKs, automatically organized by Vault ID.</li>
     <li>Deploy and drop MDL and Vault SDKs directly from the IDE, with built-in safety checks for Production Vaults.</li>
     <li>Download and analyze Developer Logs (API Usage, SDK Debug, SDK Runtime, and SDK Profiler).</li>
+    <li>Download Configuration Reports directly into your workspace.</li>
+    <li>Vault Java SDK code inspections to catch sandbox violations at development time.</li>
     <li>Language support for MDL and VPK files, including syntax highlighting, formatting, and auto-completion.</li>
     <li>Project templates for Vault API Integration, Java SDK, and Custom Pages.</li>
-    <li>Download Configuration Reports directly into your workspace.</li>    
 </ul>
 <!-- Plugin description end -->
 
@@ -37,7 +39,15 @@ The Vault Toolbox IntelliJ Plugin is available for installation directly via the
 
 The Vault Toolbox IntelliJ Plugin requires you to authenticate into a Vault to extract data or deploy code. The plugin
 allows you to easily connect, manage, and seamlessly switch between multiple Veeva Vault environments directly from the
-IDE tool window.
+IDE tool window, including support for securely saved credentials via your OS password manager.
+
+### VQL Console
+
+Run read-only Vault queries directly in the IDE with the VQL Console. It features VQL syntax highlighting, object and field auto-completion, paginated results, CSV export, inline editing with Save Changes, and persistent query history. Use the visual Query Builder to construct queries easily by picking objects, selecting fields, adding filter conditions, and ordering with a live preview.
+
+### Compare Vaults
+
+Easily compare MDL and Vault SDK components between two different Vault environments. Quickly identify configuration and code differences across environments using raw file comparison or the Semantic JSON View, then apply changes directly from source to target or target to source without leaving the IDE.
 
 ### Configuration Reports
 
@@ -67,6 +77,22 @@ within the IDE, including:
 * SDK Runtime Logs
 * SDK Profiler Logs
 
+### Vault Java SDK Code Inspections
+
+Write safer Vault Java SDK code without leaving the IDE. The plugin provides a set of code inspections that flag APIs
+and patterns not permitted inside the Vault sandbox, including:
+
+* Java Reflection API (`java.lang.reflect.*`, `Class.forName()`, etc.)
+* Multi-threading constructs (`Thread`, `ThreadLocal`, `java.util.concurrent.*`, `synchronized`)
+* File I/O and NIO operations (`java.io.File*`, `java.nio.file.*`)
+* Console output and system calls (`System.out`, `System.exit()`, `Runtime.exec()`)
+* Direct network access (`Socket`, `HttpURLConnection`, `ProcessBuilder`)
+* Static mutable and `volatile` fields
+* Standard Java collections (`ArrayList`, `HashMap`, etc.) — use `VaultCollections` and `VaultCollectors` instead
+
+Inspections are disabled by default and can be enabled in **Settings → Inspections → Vault Java SDK** for projects that
+include the Vault Java SDK on their classpath.
+
 ### Native Language Support
 
 The Vault Toolbox IntelliJ Plugin uses IntelliJ's powerful open-source parsing engine to provide a first-class coding
@@ -94,6 +120,8 @@ any overrides to documented functionalities.
 To use the plugin, users must have standard Developer/Admin API access permissions within their Vault environments.
 Access to specific configuration data or logs is subject to the relevant permissions and Lifecycle Role restrictions of
 the authenticated user.
+
+Destructive actions such as deploying or dropping MDL and SDKs are blocked on Production Vaults to prevent accidental modifications.
 
 ## Support
 

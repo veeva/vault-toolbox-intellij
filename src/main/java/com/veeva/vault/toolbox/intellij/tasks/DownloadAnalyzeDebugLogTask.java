@@ -25,6 +25,7 @@ public class DownloadAnalyzeDebugLogTask extends ToolboxTask {
 
 	private final VirtualFile virtualFile;
 	private final String debugLogId;
+	private File outputFile;
 
 	/**
 	 * Downloads and analyzes the debug session into the project's default logs directory.
@@ -69,7 +70,7 @@ public class DownloadAnalyzeDebugLogTask extends ToolboxTask {
 			debugLog.downloadSdkLogs(toolboxProject.getVaultClient(), debugLogId, outputZipFile, true);
 
 			File inputDirectory = new File(virtualFile.getPath());
-			File outputFile = new File(inputDirectory, "debug-" + Date.getDateTimeAsFileName(ZonedDateTime.now()) + ".csv");
+			outputFile = new File(inputDirectory, "debug-" + Date.getDateTimeAsFileName(ZonedDateTime.now()) + ".csv");
 			debugLog.analyze(inputDirectory, outputFile);
 
 			openInDesktop(outputFile);
@@ -80,12 +81,38 @@ public class DownloadAnalyzeDebugLogTask extends ToolboxTask {
 	}
 
 	/**
+	 * Triggered after the log analysis completes successfully. Selects the resulting
+	 * CSV file in the Project View and shows a success notification if desktop
+	 * auto-open is disabled.
+	 */
+	@Override
+	public void onSuccess() {
+		super.onSuccess();
+		if (outputFile != null) {
+			VirtualFile vFile = VfsUtil.findFileByIoFile(outputFile, true);
+			selectInProjectView(vFile);
+
+			com.veeva.vault.toolbox.intellij.settings.AppSettings.AppState state = com.veeva.vault.toolbox.intellij.settings.AppSettings.getInstance().getState();
+			if (state == null || !state.openLogsInDesktop) {
+				com.veeva.vault.toolbox.intellij.ui.Message message = new com.veeva.vault.toolbox.intellij.ui.Message(toolboxProject);
+				message.setTitle("Analyze Logs");
+				message.append("SDK debug log download and analysis completed successfully.");
+				message.showInformation();
+			}
+		}
+	}
+
+	/**
 	 * Opens the specified file using the system's default desktop application for CSV files.
 	 *
 	 * @param file the file to open
 	 */
 	private static void openInDesktop(File file) {
 		if (!Desktop.isDesktopSupported() || !file.exists()) {
+			return;
+		}
+		com.veeva.vault.toolbox.intellij.settings.AppSettings.AppState state = com.veeva.vault.toolbox.intellij.settings.AppSettings.getInstance().getState();
+		if (state == null || !state.openLogsInDesktop) {
 			return;
 		}
 		try {

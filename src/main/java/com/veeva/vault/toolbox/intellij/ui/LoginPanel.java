@@ -4,7 +4,12 @@ import com.intellij.icons.AllIcons;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.ui.ValidationInfo;
 import com.intellij.ui.JBColor;
+import com.intellij.ui.components.JBLabel;
+import com.intellij.ui.components.JBPanel;
+import com.intellij.ui.components.JBPasswordField;
 import com.intellij.ui.components.JBTabbedPane;
+import com.intellij.ui.components.JBTextField;
+import com.intellij.util.ui.FormBuilder;
 import com.intellij.util.ui.JBUI;
 import com.veeva.vault.toolbox.intellij.credentials.BasicAuth;
 import com.veeva.vault.toolbox.intellij.credentials.VaultCredentialManager;
@@ -29,25 +34,25 @@ import static com.veeva.vault.toolbox.intellij.settings.Vault.AuthenticationType
 /**
  * Provides a login interface for Veeva Vault, supporting both Basic and Session-based authentication.
  */
-public class LoginPanel extends JPanel {
+public class LoginPanel extends JBPanel<LoginPanel> {
 
     ToolboxProject toolboxProject;
     ToolboxProject.ConnectionResult connectionResult;
 
-    JPanel vaultDnsPanel = new JPanel(new GridLayout(2, 1));
-    JPanel basicAuthPanel = new JPanel(new GridLayout(4, 1));
-    JPanel sessionAuthPanel = new JPanel(new GridLayout(4, 1));
+    JPanel vaultDnsPanel = new JBPanel<>();
+    JPanel basicAuthPanel = new JBPanel<>();
+    JPanel sessionAuthPanel = new JBPanel<>();
 
-    JPanel loginPanel = new JPanel(new GridLayout(0, 1, 0, 10));
+    JPanel loginPanel = new JBPanel<>(new BorderLayout(0, 8));
     JTextArea messageArea = new JTextArea();
     JBTabbedPane authTabs = new JBTabbedPane();
     ToolboxButton loginButton = new ToolboxButton(toolboxProject, "Login");
     boolean showLoginButton;
 
-    JTextField vaultDnsField = new JTextField(30);
-    JTextField usernameField = new JTextField(30);
-    JPasswordField passwordField = new JPasswordField(30);
-    JPasswordField sessionIdField = new JPasswordField(30);
+    JBTextField vaultDnsField = new JBTextField(30);
+    JBTextField usernameField = new JBTextField(30);
+    JBPasswordField passwordField = new JBPasswordField();
+    JBPasswordField sessionIdField = new JBPasswordField();
 
     SavedCredential loadedCredential = null;
     private Consumer<PendingCredentialSave> credentialSaveHandler;
@@ -67,6 +72,17 @@ public class LoginPanel extends JPanel {
         /** Previously stored secret for the matched credential; used to detect password changes. */
         public final String storedSecret;
 
+        /**
+         * Constructs a new PendingCredentialSave.
+         *
+         * @param vaultDns     The Vault DNS.
+         * @param isBasic      True if basic auth, false otherwise.
+         * @param username     The username.
+         * @param password     The password.
+         * @param sessionId    The session ID.
+         * @param matchedCred  The matching saved credential, if any.
+         * @param storedSecret The stored secret for the matching credential, if any.
+         */
         PendingCredentialSave(String vaultDns, boolean isBasic, String username,
                               String password, String sessionId,
                               SavedCredential matchedCred, String storedSecret) {
@@ -77,6 +93,102 @@ public class LoginPanel extends JPanel {
             this.sessionId = sessionId;
             this.matchedCred = matchedCred;
             this.storedSecret = storedSecret;
+        }
+    }
+
+    /**
+     * Prompts the user to save or update the credential using standard dialogs.
+     * @param parent The parent component for the dialogs.
+     * @param pending The pending credential context.
+     */
+    public static void promptToSaveCredential(Component parent, PendingCredentialSave pending) {
+        if (pending == null) return;
+
+        if (pending.matchedCred != null) {
+            String label = (pending.matchedCred.label != null && !pending.matchedCred.label.isEmpty())
+                    ? pending.matchedCred.label : pending.matchedCred.vaultDNS;
+            boolean dnsChanged = !pending.vaultDns.equalsIgnoreCase(pending.matchedCred.vaultDNS);
+            boolean usernameChanged = pending.isBasic && !pending.username.equals(pending.matchedCred.username);
+            
+            String message;
+            if (dnsChanged || usernameChanged) {
+                message = "Update saved credential \"" + label + "\" with these changes?";
+            } else {
+                message = "Update saved " + (pending.isBasic ? "password" : "session ID") + " for \"" + label + "\"?";
+            }
+
+            int confirm = javax.swing.JOptionPane.showConfirmDialog(parent, message, "Update Credential", javax.swing.JOptionPane.YES_NO_OPTION);
+            if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                pending.matchedCred.vaultDNS = pending.vaultDns;
+                if (pending.isBasic) pending.matchedCred.username = pending.username;
+                com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                    if (pending.isBasic) {
+                        VaultCredentialManager.setUsernamePasswordById(pending.matchedCred.id, pending.username, pending.password);
+                    } else {
+                        VaultCredentialManager.setSessionIdById(pending.matchedCred.id, pending.sessionId);
+                    }
+                });
+                com.intellij.openapi.application.ApplicationManager.getApplication().saveSettings();
+            }
+        } else {
+            int confirm = javax.swing.JOptionPane.showConfirmDialog(parent, "Save these credentials?", "Save Credential", javax.swing.JOptionPane.YES_NO_OPTION);
+            if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                String name = javax.swing.JOptionPane.showInputDialog(parent, "Credential label:", pending.vaultDns);
+                if (name != null) {
+                    name = name.trim();
+                    if (name.isEmpty()) name = pending.vaultDns;
+
+                    AppSettings.AppState appState = java.util.Objects.requireNonNull(AppSettings.getInstance().getState());
+                    final String finalName = name;
+                    SavedCredential duplicate = appState.savedCredentials.stream()
+                            .filter(c -> finalName.equalsIgnoreCase(c.label))
+                            .findFirst().orElse(null);
+
+                    if (duplicate != null) {
+                        int overwrite = javax.swing.JOptionPane.showConfirmDialog(
+                                parent,
+                                "A credential with label \"" + name + "\" already exists. Overwrite it?",
+                                "Duplicate Label",
+                                javax.swing.JOptionPane.YES_NO_OPTION,
+                                javax.swing.JOptionPane.WARNING_MESSAGE);
+                        if (overwrite == javax.swing.JOptionPane.YES_OPTION) {
+                            duplicate.vaultDNS = pending.vaultDns;
+                            duplicate.authenticationType = pending.isBasic
+                                    ? Vault.AuthenticationType.BASIC
+                                    : Vault.AuthenticationType.SESSION_ID;
+                            if (pending.isBasic) duplicate.username = pending.username;
+                            final SavedCredential finalDuplicate = duplicate;
+                            com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                                if (pending.isBasic) {
+                                    VaultCredentialManager.setUsernamePasswordById(finalDuplicate.id, pending.username, pending.password);
+                                } else {
+                                    VaultCredentialManager.setSessionIdById(finalDuplicate.id, pending.sessionId);
+                                }
+                            });
+                            com.intellij.openapi.application.ApplicationManager.getApplication().saveSettings();
+                        }
+                    } else {
+                        SavedCredential newCred = new SavedCredential();
+                        newCred.label = name;
+                        newCred.vaultDNS = pending.vaultDns;
+                        newCred.authenticationType = pending.isBasic
+                                ? Vault.AuthenticationType.BASIC
+                                : Vault.AuthenticationType.SESSION_ID;
+                        if (pending.isBasic) newCred.username = pending.username;
+                        appState.savedCredentials.add(newCred);
+                        com.intellij.openapi.application.ApplicationManager.getApplication().saveSettings();
+
+                        final SavedCredential finalNewCred = newCred;
+                        com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                            if (pending.isBasic) {
+                                VaultCredentialManager.setUsernamePasswordById(finalNewCred.id, pending.username, pending.password);
+                            } else {
+                                VaultCredentialManager.setSessionIdById(finalNewCred.id, pending.sessionId);
+                            }
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -111,6 +223,14 @@ public class LoginPanel extends JPanel {
         if (connectionResult != null && connectionResult.isFailure()) {
             messageArea.setForeground(JBColor.RED);
             messageArea.setText(connectionResult.getErrorMessage());
+            if (!messageArea.isVisible()) {
+                messageArea.setVisible(true);
+                loginPanel.setVisible(true);
+                Window window = SwingUtilities.getWindowAncestor(this);
+                if (window instanceof JDialog) {
+                    window.pack();
+                }
+            }
         } else {
             resetConnectionResults();
         }
@@ -123,6 +243,16 @@ public class LoginPanel extends JPanel {
         this.connectionResult = null;
         messageArea.setText("");
         messageArea.setForeground(null);
+        if (messageArea.isVisible()) {
+            messageArea.setVisible(false);
+            if (!showLoginButton) {
+                loginPanel.setVisible(false);
+            }
+            Window window = SwingUtilities.getWindowAncestor(this);
+            if (window instanceof JDialog) {
+                window.pack();
+            }
+        }
     }
 
     /**
@@ -173,6 +303,46 @@ public class LoginPanel extends JPanel {
         return creds;
     }
 
+    public static PendingCredentialSave checkCredentialForSave(String vaultDns, boolean isBasic, String username, String password, String sessionId, SavedCredential credentialFromPicker) {
+        AppSettings.AppState appState = java.util.Objects.requireNonNull(AppSettings.getInstance().getState());
+        SavedCredential matchedCred = credentialFromPicker;
+        if (matchedCred == null) {
+            for (SavedCredential c : appState.savedCredentials) {
+                boolean typeMatch = isBasic
+                        ? c.authenticationType == Vault.AuthenticationType.BASIC
+                        : c.authenticationType == Vault.AuthenticationType.SESSION_ID;
+                boolean dnsMatch = vaultDns.equalsIgnoreCase(c.vaultDNS);
+                boolean userMatch = !isBasic || username.equals(c.username);
+                if (typeMatch && dnsMatch && userMatch) {
+                    matchedCred = c;
+                    break;
+                }
+            }
+        }
+
+        String storedSecret = null;
+        if (matchedCred != null) {
+            if (isBasic) {
+                BasicAuth stored = VaultCredentialManager.getUsernamePasswordById(matchedCred.id);
+                storedSecret = stored != null ? stored.getPassword() : null;
+            } else {
+                storedSecret = VaultCredentialManager.getSessionIdById(matchedCred.id);
+            }
+            String currentSecret = isBasic ? password : sessionId;
+            boolean secretChanged = !java.util.Objects.equals(storedSecret, currentSecret);
+            boolean dnsChanged = !vaultDns.equalsIgnoreCase(matchedCred.vaultDNS);
+            boolean usernameChanged = isBasic && !username.equals(matchedCred.username);
+            if (dnsChanged) {
+                return new PendingCredentialSave(vaultDns, isBasic, username, password, sessionId, null, null);
+            } else if (secretChanged || usernameChanged) {
+                return new PendingCredentialSave(vaultDns, isBasic, username, password, sessionId, matchedCred, storedSecret);
+            }
+        } else {
+            return new PendingCredentialSave(vaultDns, isBasic, username, password, sessionId, null, null);
+        }
+        return null;
+    }
+
     /**
      * Performs an asynchronous login operation on a background thread.
      *
@@ -184,6 +354,14 @@ public class LoginPanel extends JPanel {
         if (validationInfo != null) {
             messageArea.setForeground(JBColor.RED);
             messageArea.setText(validationInfo.message);
+            if (!messageArea.isVisible()) {
+                messageArea.setVisible(true);
+                loginPanel.setVisible(true);
+                Window window = SwingUtilities.getWindowAncestor(this);
+                if (window instanceof JDialog) {
+                    window.pack();
+                }
+            }
             if (validationInfo.component != null) {
                 validationInfo.component.requestFocusInWindow();
             }
@@ -219,39 +397,7 @@ public class LoginPanel extends JPanel {
                 }
 
                 if (result != null && result.isConnected()) {
-                    SavedCredential matchedCred = credentialFromPicker;
-                    if (matchedCred == null) {
-                        for (SavedCredential c : appState.savedCredentials) {
-                            boolean typeMatch = isBasic
-                                    ? c.authenticationType == Vault.AuthenticationType.BASIC
-                                    : c.authenticationType == Vault.AuthenticationType.SESSION_ID;
-                            boolean dnsMatch = vaultDns.equalsIgnoreCase(c.vaultDNS);
-                            boolean userMatch = !isBasic || username.equals(c.username);
-                            if (typeMatch && dnsMatch && userMatch) {
-                                matchedCred = c;
-                                break;
-                            }
-                        }
-                    }
-
-                    String storedSecret = null;
-                    if (matchedCred != null) {
-                        if (isBasic) {
-                            BasicAuth stored = VaultCredentialManager.getUsernamePasswordById(matchedCred.id);
-                            storedSecret = stored != null ? stored.getPassword() : null;
-                        } else {
-                            storedSecret = VaultCredentialManager.getSessionIdById(matchedCred.id);
-                        }
-                        String currentSecret = isBasic ? password : sessionId;
-                        boolean secretChanged = !Objects.equals(storedSecret, currentSecret);
-                        boolean dnsChanged = !vaultDns.equalsIgnoreCase(matchedCred.vaultDNS);
-                        boolean usernameChanged = isBasic && !username.equals(matchedCred.username);
-                        if (secretChanged || dnsChanged || usernameChanged) {
-                            pending = new PendingCredentialSave(vaultDns, isBasic, username, password, sessionId, matchedCred, storedSecret);
-                        }
-                    } else {
-                        pending = new PendingCredentialSave(vaultDns, isBasic, username, password, sessionId, null, null);
-                    }
+                    pending = checkCredentialForSave(vaultDns, isBasic, username, password, sessionId, credentialFromPicker);
                 }
             } catch (Exception e) {
                 result = new ToolboxProject.ConnectionResult("Unexpected system error: " + e.getMessage());
@@ -326,91 +472,103 @@ public class LoginPanel extends JPanel {
      * Configures the layout, components, and default values of the login panel.
      */
     protected void init() {
-        this.setLayout(new GridBagLayout());
-        this.setSize(400, 300);
-        this.setMaximumSize(new Dimension(400, 300));
-        this.setBorder(JBUI.Borders.empty(20));
-
-        this.setPreferredSize(new Dimension(400, 300));
-        this.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        this.setLayout(new BorderLayout());
+        if (showLoginButton) {
+            this.setBorder(JBUI.Borders.empty(10, 20));
+        } else {
+            this.setBorder(JBUI.Borders.empty(0, 0));
+        }
 
         vaultDnsField.getDocument().addDocumentListener((FieldListener) e -> resetConnectionResults());
         usernameField.getDocument().addDocumentListener((FieldListener) e -> resetConnectionResults());
         passwordField.getDocument().addDocumentListener((FieldListener) e -> resetConnectionResults());
         sessionIdField.getDocument().addDocumentListener((FieldListener) e -> resetConnectionResults());
 
-        authTabs.addTab("Basic", basicAuthPanel);
-        authTabs.addTab("Session", sessionAuthPanel);
-
         addVisibilityToggle(passwordField);
         addVisibilityToggle(sessionIdField);
 
-        JLabel usernameLabel = new JLabel("Username:");
+        JBLabel usernameLabel = new JBLabel("Username:");
         usernameLabel.setIcon(AllIcons.General.ContextHelp);
         usernameLabel.setHorizontalTextPosition(SwingConstants.LEFT);
         usernameLabel.setToolTipText("Vault DNS and Username are case sensitive");
-        basicAuthPanel.add(usernameLabel);
-        basicAuthPanel.add(usernameField);
-        basicAuthPanel.add(new JLabel("Password:"));
-        basicAuthPanel.add(passwordField);
+        
+        JBPanel<?> userRow = new JBPanel<>(new BorderLayout());
+        userRow.add(usernameField, BorderLayout.CENTER);
 
-        sessionAuthPanel.add(new JLabel("Session ID:"));
-        sessionAuthPanel.add(sessionIdField);
-        sessionAuthPanel.add(new JLabel());
-        sessionAuthPanel.add(new JLabel());
+        JBPanel<?> passRow = new JBPanel<>(new BorderLayout());
+        passRow.add(passwordField, BorderLayout.CENTER);
+
+        JBPanel<?> sessRow = new JBPanel<>(new BorderLayout());
+        sessRow.add(sessionIdField, BorderLayout.CENTER);
+
+        basicAuthPanel = FormBuilder.createFormBuilder()
+                .addLabeledComponent(usernameLabel, userRow, 1, true)
+                .addLabeledComponent(new JBLabel("Password:"), passRow, 1, true)
+                .addComponentFillVertically(new JBPanel<>(), 0)
+                .getPanel();
+        basicAuthPanel.setBorder(JBUI.Borders.empty(8, 0, 0, 0));
+
+        sessionAuthPanel = FormBuilder.createFormBuilder()
+                .addLabeledComponent(new JBLabel("Session ID:"), sessRow, 1, true)
+                .addComponentFillVertically(new JBPanel<>(), 0)
+                .getPanel();
+        sessionAuthPanel.setBorder(JBUI.Borders.empty(8, 0, 0, 0));
+
+        authTabs.addTab("Basic", basicAuthPanel);
+        authTabs.addTab("Session", sessionAuthPanel);
 
         AppSettings.AppState appState = Objects.requireNonNull(AppSettings.getInstance().getState());
 
-        JLabel vaultDnsLabel = new JLabel("Vault DNS:");
+        JBLabel vaultDnsLabel = new JBLabel("Vault DNS:");
         vaultDnsLabel.setIcon(AllIcons.General.ContextHelp);
         vaultDnsLabel.setHorizontalTextPosition(SwingConstants.LEFT);
         vaultDnsLabel.setToolTipText("Navigate to Vault Toolbox settings and check for Allow All Certificates checkbox if you want to authenticate to PVM");
-        vaultDnsPanel.add(vaultDnsLabel);
-        JPanel dnsRow = new JPanel(new BorderLayout(4, 0));
+        
+        JBPanel<?> dnsRow = new JBPanel<>(new BorderLayout(4, 0));
         dnsRow.add(vaultDnsField, BorderLayout.CENTER);
         dnsRow.add(buildCredentialPickerIcon(), BorderLayout.EAST);
-        vaultDnsPanel.add(dnsRow);
-
+        
         messageArea.setEditable(false);
         messageArea.setOpaque(false);
         messageArea.setLineWrap(true);
         messageArea.setWrapStyleWord(true);
         messageArea.setFont(UIManager.getFont("Label.font"));
+        messageArea.setVisible(false);
 
         loginPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        loginPanel.setBorder(JBUI.Borders.emptyTop(10));
 
         if (showLoginButton) {
+            java.awt.event.ActionListener enterListener = e -> {
+                if (loginButton != null && loginButton.isEnabled()) {
+                    doAsyncLogin(null, null);
+                }
+            };
+            vaultDnsField.addActionListener(enterListener);
+            usernameField.addActionListener(enterListener);
+            passwordField.addActionListener(enterListener);
+            sessionIdField.addActionListener(enterListener);
+
             loginButton.addActionListener(e -> this.doAsyncLogin(null, null));
-            loginPanel.add(loginButton);
+            JBPanel<?> buttonRow = new JBPanel<>(new BorderLayout());
+            buttonRow.setBorder(JBUI.Borders.empty(0, -2, 0, 10));
+            buttonRow.add(loginButton, BorderLayout.CENTER);
+            
+            loginPanel.add(buttonRow, BorderLayout.NORTH);
+            loginPanel.add(messageArea, BorderLayout.CENTER);
+        } else {
+            loginPanel.add(messageArea, BorderLayout.CENTER);
+            loginPanel.setVisible(false);
         }
-        loginPanel.add(messageArea);
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        JPanel formPanel = FormBuilder.createFormBuilder()
+                .addLabeledComponent(vaultDnsLabel, dnsRow, 1, true)
+                .addComponent(authTabs)
+                .addComponentToRightColumn(loginPanel)
+                .addComponentFillVertically(new JBPanel<>(), 0)
+                .getPanel();
 
-        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.05; gbc.weighty = 1.0;
-        this.add(new JPanel(), gbc);
-        gbc.gridx = 2; gbc.gridy = 0; gbc.weightx = 0.05; gbc.weighty = 1.0;
-        this.add(new JPanel(), gbc);
-
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        GridBagConstraints formGbc = new GridBagConstraints();
-        formGbc.fill = GridBagConstraints.HORIZONTAL;
-        formGbc.weightx = 1.0;
-        formGbc.gridx = 0;
-
-        formGbc.gridy = 0; formGbc.insets = JBUI.insetsBottom(10);
-        formPanel.add(vaultDnsPanel, formGbc);
-
-        formGbc.gridy = 1; formGbc.insets = JBUI.emptyInsets();
-        formPanel.add(authTabs, formGbc);
-
-        formGbc.gridy = 2; formGbc.insets = JBUI.insetsTop(10);
-        formPanel.add(loginPanel, formGbc);
-
-        gbc.gridx = 1; gbc.weightx = 0.90; gbc.weighty = 1.0;
-        gbc.anchor = GridBagConstraints.NORTH; gbc.insets = JBUI.emptyInsets();
-        this.add(formPanel, gbc);
+        this.add(formPanel, BorderLayout.CENTER);
 
         SavedCredential defaultCredential = appState.savedCredentials.stream()
                 .filter(c -> c.isDefault).findFirst().orElse(null);
@@ -491,28 +649,17 @@ public class LoginPanel extends JPanel {
      * @param vaultDNS           The Vault DNS.
      */
     private void setFieldValues(Vault.AuthenticationType authenticationType, String vaultDNS) {
+        SavedCredential cred = AppSettings.findCredentialByDns(vaultDNS);
+        if (cred != null) {
+            loadSavedCredential(cred);
+            return;
+        }
         vaultDnsField.setText(vaultDNS);
-
         if (BASIC.equals(authenticationType)) {
             authTabs.setSelectedIndex(0);
         } else if (SESSION_ID.equals(authenticationType)) {
             authTabs.setSelectedIndex(1);
         }
-
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
-            BasicAuth basicAuth = VaultCredentialManager.getUsernamePassword(vaultDNS);
-            String savedSession = VaultCredentialManager.getSessionId(vaultDNS);
-
-            ApplicationManager.getApplication().invokeLater(() -> {
-                if (basicAuth != null && basicAuth.getUsername() != null && !basicAuth.getUsername().isEmpty()) {
-                    usernameField.setText(basicAuth.getUsername());
-                    passwordField.setText(basicAuth.getPassword());
-                }
-                if (savedSession != null && !savedSession.isEmpty()) {
-                    sessionIdField.setText(savedSession);
-                }
-            }, com.intellij.openapi.application.ModalityState.any());
-        });
     }
 
     /**

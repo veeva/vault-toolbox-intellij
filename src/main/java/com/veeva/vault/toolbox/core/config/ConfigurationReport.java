@@ -54,20 +54,51 @@ public class ConfigurationReport {
      *                         the request, polling, and download phases
      * @param unzip            when {@code true}, the downloaded archive is
      *                         extracted into the parent directory of
-     *                         {@code outputFile}
+     * @param cancelledCheck   supplier to check if the task has been cancelled
+     * @param options          additional options to configure the report request
      * @return a {@link DeploymentResult} describing the outcome and any errors
      */
-    @JsonIgnore
-    public DeploymentResult downloadConfigurationReport(File outputFile,
+     @JsonIgnore
+     public DeploymentResult downloadConfigurationReport(File outputFile,
                                                         Consumer<ProgressResult> progressConsumer,
                                                         boolean unzip,
-                                                        BooleanSupplier cancelledCheck) {
+                                                        BooleanSupplier cancelledCheck,
+                                                        Options options) {
         DeploymentResult deploymentResult = new DeploymentResult();
         try {
             progressConsumer.accept(new ProgressResult("Requesting Configuration Report"));
 
-            JobCreateResponse jobCreateResponse = vaultClient.newRequest(ConfigurationMigrationRequest.class)
-                    .vaultConfigurationReport();
+            ConfigurationMigrationRequest request = vaultClient.newRequest(ConfigurationMigrationRequest.class);
+            if (options != null) {
+                if (options.includeVaultSettings != null) request.setIncludeVaultSettings(options.includeVaultSettings);
+                if (options.includeInactiveComponents != null) request.setIncludeInactiveComponents(options.includeInactiveComponents);
+                if (options.includeComponentsModifiedSince != null) request.setIncludeComponentsModifiedSince(options.includeComponentsModifiedSince);
+                if (options.includeDocBinderTemplates != null) request.setIncludeDocBinderTemplates(options.includeDocBinderTemplates);
+                if (options.suppressEmptyResults != null) request.setSuppressEmptyResults(options.suppressEmptyResults);
+                if (options.componentTypes != null && !options.componentTypes.isEmpty()) {
+                    try {
+                        for (java.lang.reflect.Method method : request.getClass().getMethods()) {
+                            if (method.getName().toLowerCase().contains("componenttype")) {
+                                Class<?>[] paramTypes = method.getParameterTypes();
+                                if (paramTypes.length == 1) {
+                                    if (paramTypes[0] == String.class) {
+                                        method.invoke(request, String.join(",", options.componentTypes));
+                                        break;
+                                    } else if (java.util.List.class.isAssignableFrom(paramTypes[0])) {
+                                        method.invoke(request, options.componentTypes);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.warn("Failed to set component types via reflection", e);
+                    }
+                }
+                if (options.outputFormat != null) request.setOutputFormat(options.outputFormat);
+            }
+
+            JobCreateResponse jobCreateResponse = request.vaultConfigurationReport();
 
             if (jobCreateResponse.isFailure() || jobCreateResponse.getJobId() == null) {
                 deploymentResult.addErrorMessage("Failed to request report: " + jobCreateResponse.getResponseMessage());
@@ -165,4 +196,25 @@ public class ConfigurationReport {
             return false;
         }
     }
+
+    /**
+     * Configuration options for the Vault configuration report request.
+     */
+    public static class Options {
+        /** Includes Vault settings in the report. */
+        public Boolean includeVaultSettings;
+        /** Includes inactive components in the report. */
+        public Boolean includeInactiveComponents;
+        /** Filters the report to components modified since this date. */
+        public java.time.ZonedDateTime includeComponentsModifiedSince;
+        /** Includes document binder templates in the report. */
+        public Boolean includeDocBinderTemplates;
+        /** Suppresses empty results from the report. */
+        public Boolean suppressEmptyResults;
+        /** Filters the report to these specific component types. */
+        public java.util.List<String> componentTypes;
+        /** The format of the output report. */
+        public ConfigurationMigrationRequest.OutputFormat outputFormat;
+    }
 }
+

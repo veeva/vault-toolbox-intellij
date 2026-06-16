@@ -28,6 +28,7 @@ public class ResyncProjectTask extends ToolboxTask {
 	private static final String DEFAULT_PACKAGE = "com.veeva.vault.custom";
 
 	private final VirtualFile virtualFile;
+	private boolean success = true;
 
 	/**
 	 * @param project     the IntelliJ project, may be {@code null}
@@ -124,6 +125,9 @@ public class ResyncProjectTask extends ToolboxTask {
 	@Override
 	public void onSuccess() {
 		super.onSuccess();
+		if (!success) {
+			return;
+		}
 		try {
 			if (toolboxProject != null) {
 				Message message = toolboxProject.newMessage();

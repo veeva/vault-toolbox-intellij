@@ -2,6 +2,10 @@ package com.veeva.vault.toolbox.intellij.ui;
 
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.ValidationInfo;
+import com.intellij.ui.components.JBPanel;
+import com.intellij.ui.components.JBScrollPane;
+import com.intellij.ui.components.JBTextField;
+import com.intellij.util.ui.FormBuilder;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
 import com.veeva.vault.vapil.api.model.response.QueryResponse;
 import com.veeva.vault.vapil.api.request.QueryRequest;
@@ -19,7 +23,7 @@ import java.util.Map;
  */
 public class CreateProfilerSessionDialog extends DialogWrapper {
     private final ToolboxProject toolboxProject;
-    private JTextField labelField;
+    private JBTextField labelField;
     private JXComboBox userComboBox;
     private JTextArea descriptionArea;
     private Map<String, String> userMap = new HashMap<>();
@@ -40,43 +44,16 @@ public class CreateProfilerSessionDialog extends DialogWrapper {
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setPreferredSize(new Dimension(500, 400));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        panel.add(new JLabel("Label:"), gbc);
-
-        gbc.gridx = 1;
-        gbc.weightx = 1.0;
-        labelField = new JTextField();
-        panel.add(labelField, gbc);
-
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        gbc.weightx = 0.0;
-        panel.add(new JLabel("User:"), gbc);
-
-        gbc.gridx = 1;
-        gbc.weightx = 1.0;
+        labelField = new JBTextField();
         userComboBox = new JXComboBox();
-        panel.add(userComboBox, gbc);
-
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        gbc.weightx = 0.0;
-        gbc.anchor = GridBagConstraints.NORTHWEST;
-        panel.add(new JLabel("Description:"), gbc);
-
-        gbc.gridx = 1;
-        gbc.weightx = 1.0;
-        gbc.weighty = 1.0;
-        gbc.fill = GridBagConstraints.BOTH;
         descriptionArea = new JTextArea(5, 20);
-        panel.add(new JScrollPane(descriptionArea), gbc);
+
+        JPanel panel = FormBuilder.createFormBuilder()
+                .addLabeledComponent("Label:", labelField)
+                .addLabeledComponent("User:", userComboBox)
+                .addLabeledComponent("Description:", new JBScrollPane(descriptionArea))
+                .getPanel();
+        panel.setPreferredSize(new Dimension(500, 400));
 
         return panel;
     }

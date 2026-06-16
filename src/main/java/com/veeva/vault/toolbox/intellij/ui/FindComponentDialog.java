@@ -2,8 +2,11 @@ package com.veeva.vault.toolbox.intellij.ui;
 
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.ui.SearchTextField;
+import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBList;
+import com.intellij.ui.components.JBPanel;
 import com.intellij.ui.components.JBScrollPane;
+import com.intellij.util.ui.FormBuilder;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
 import com.veeva.vault.vapil.api.model.metadata.VaultObjectField;
 import com.veeva.vault.vapil.api.model.response.MetaDataObjectResponse;
@@ -118,20 +121,6 @@ public class FindComponentDialog extends DialogWrapper {
 
     @Override
     protected @Nullable JComponent createCenterPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.weightx = 1.0;
-
-        int row = 0;
-
-        gbc.gridx = 0; gbc.gridy = row;
-        gbc.weighty = 0.0;
-        panel.add(new JLabel("Search:"), gbc);
-        row++;
-        
-        gbc.gridy = row;
         searchTextField = new SearchTextField();
         searchTextField.addDocumentListener(new DocumentListener() {
             @Override
@@ -141,21 +130,19 @@ public class FindComponentDialog extends DialogWrapper {
             @Override
             public void changedUpdate(DocumentEvent e) { filterData(); }
         });
-        panel.add(searchTextField, gbc);
-        row++;
 
-        gbc.gridy = row;
-        panel.add(new JLabel("Select " + type + ":"), gbc);
-        row++;
-
-        gbc.gridy = row;
-        gbc.weighty = 1.0;
         listModel = new DefaultListModel<>();
         itemList = new JBList<>(listModel);
         itemList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         
         JBScrollPane scrollPane = new JBScrollPane(itemList);
-        panel.add(scrollPane, gbc);
+
+        JPanel panel = FormBuilder.createFormBuilder()
+                .addComponent(new JBLabel("Search:"))
+                .addComponent(searchTextField)
+                .addComponent(new JBLabel("Select " + type + ":"))
+                .addComponentFillVertically(scrollPane, 0)
+                .getPanel();
 
         panel.setPreferredSize(new Dimension(400, 300));
         return panel;

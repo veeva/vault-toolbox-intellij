@@ -27,6 +27,7 @@ public class AnalyzeLocalDebugLogTask extends ToolboxTask {
     private final VirtualFile virtualFile;
     private final List<File> logFiles;
     private final String logIdSuffix;
+    private File outputFile;
 
     /**
      * @param project     the IntelliJ project, may be {@code null}
@@ -54,12 +55,34 @@ public class AnalyzeLocalDebugLogTask extends ToolboxTask {
             File analysisDirectory = new File(virtualFile.getPath(), "/debug/" + vaultIdStr + "/analysis");
             FileIO.makeDirectories(analysisDirectory);
 
-            File outputFile = new File(analysisDirectory, "debug_analysis_" + this.logIdSuffix + ".csv");
+            outputFile = new File(analysisDirectory, "debug_analysis_" + this.logIdSuffix + ".csv");
             debugLog.analyze(logFiles, outputFile);
 
             openInDesktop(outputFile);
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Triggered after the log analysis completes successfully. Selects the resulting
+     * CSV file in the Project View and shows a success notification if desktop
+     * auto-open is disabled.
+     */
+    @Override
+    public void onSuccess() {
+        super.onSuccess();
+        if (outputFile != null) {
+            VirtualFile vFile = VfsUtil.findFileByIoFile(outputFile, true);
+            selectInProjectView(vFile);
+
+            com.veeva.vault.toolbox.intellij.settings.AppSettings.AppState state = com.veeva.vault.toolbox.intellij.settings.AppSettings.getInstance().getState();
+            if (state == null || !state.openLogsInDesktop) {
+                com.veeva.vault.toolbox.intellij.ui.Message message = new com.veeva.vault.toolbox.intellij.ui.Message(toolboxProject);
+                message.setTitle("Analyze Logs");
+                message.append("SDK debug log analysis completed successfully.");
+                message.showInformation();
+            }
         }
     }
 
@@ -70,6 +93,10 @@ public class AnalyzeLocalDebugLogTask extends ToolboxTask {
      */
     private static void openInDesktop(File file) {
         if (!Desktop.isDesktopSupported() || !file.exists()) {
+            return;
+        }
+        com.veeva.vault.toolbox.intellij.settings.AppSettings.AppState state = com.veeva.vault.toolbox.intellij.settings.AppSettings.getInstance().getState();
+        if (state == null || !state.openLogsInDesktop) {
             return;
         }
         try {

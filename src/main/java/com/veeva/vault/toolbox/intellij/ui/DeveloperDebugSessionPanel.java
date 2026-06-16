@@ -76,7 +76,7 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
                     DeveloperLogItem<SdkDebugSession> item = allItems.get(sessionTable.convertRowIndexToModel(row));
 
                     if (item.isLocal()) {
-                        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/debug/" + toolboxProject.getVaultId());
+                        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/debug/" + getSelectedVaultId());
                         String baseFilename = item.getItem().getName() + "." + item.getItem().getId();
                         File sessionDir = new File(vaultLogsDir, baseFilename);
 
@@ -158,6 +158,11 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
 
         sessionTable.getColumnModel().getColumn(2).setCellRenderer(clickableIconRenderer);
         sessionTable.getColumnModel().getColumn(3).setCellRenderer(clickableIconRenderer);
+    }
+
+    @Override
+    protected String getLogTypeSubdir() {
+        return "debug";
     }
 
     @Override
@@ -272,6 +277,10 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
 
         actionGroup.addSeparator();
 
+        actionGroup.add(createImportAction(DeveloperLogsDialog.LogType.SDK_DEBUG));
+
+        actionGroup.addSeparator();
+
         actionGroup.add(new AnAction("Refresh", "Refresh list", AllIcons.Actions.Refresh) {
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
@@ -291,7 +300,7 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
                 Map<String, DeveloperLogItem<SdkDebugSession>> itemMap = new HashMap<>();
                 List<String> userIds = new ArrayList<>();
 
-                File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/debug/" + toolboxProject.getVaultId());
+                File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/debug/" + getSelectedVaultId());
                 if (vaultLogsDir.exists()) {
                     try {
                         List<File> jsonFiles = FileIO.getFiles(vaultLogsDir, ".json");
@@ -312,20 +321,22 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
                     }
                 }
 
-                SdkDebugSessionBulkResponse response = toolboxProject.getVaultClient()
-                        .newRequest(LogRequest.class)
-                        .setIncludeInactive(true)
-                        .retrieveAllDebugLogs();
+                if (isOnConnectedVault()) {
+                    SdkDebugSessionBulkResponse response = toolboxProject.getVaultClient()
+                            .newRequest(LogRequest.class)
+                            .setIncludeInactive(true)
+                            .retrieveAllDebugLogs();
 
-                if (toolboxProject.handleSessionExpiration(response)) {
-                    return;
-                }
+                    if (toolboxProject.handleSessionExpiration(response)) {
+                        return;
+                    }
 
-                if (response != null && !response.isFailure()) {
-                    for (SdkDebugSession vSession : response.getData()) {
-                        boolean wasLocal = itemMap.containsKey(vSession.getId());
-                        itemMap.put(vSession.getId(), new DeveloperLogItem<>(vSession, true, wasLocal));
-                        if (vSession.getUserId() != null) userIds.add(vSession.getUserId().toString());
+                    if (response != null && !response.isFailure()) {
+                        for (SdkDebugSession vSession : response.getData()) {
+                            boolean wasLocal = itemMap.containsKey(vSession.getId());
+                            itemMap.put(vSession.getId(), new DeveloperLogItem<>(vSession, true, wasLocal));
+                            if (vSession.getUserId() != null) userIds.add(vSession.getUserId().toString());
+                        }
                     }
                 }
 
@@ -347,18 +358,14 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
                     userNames.clear();
                     userNames.putAll(newUserNames);
                     filterAndUpdateTable();
-                    if (sessionTable != null) {
-                        sessionTable.packAll();
-                    }
+
                 });
 
             } catch (Exception e) {
                 logger.error("Error loading SDK Debug sessions", e);
                 SwingUtilities.invokeLater(() -> {
                     filterAndUpdateTable();
-                    if (sessionTable != null) {
-                        sessionTable.packAll();
-                    }
+
                     JOptionPane.showMessageDialog(this, "An error occurred while loading sessions.", "Error", JOptionPane.ERROR_MESSAGE);
                 });
             }
@@ -560,7 +567,7 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
         List<DeveloperLogItem<SdkDebugSession>> selectedSessions = getSelectedItems();
         if (selectedSessions.isEmpty()) return;
 
-        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/debug/" + toolboxProject.getVaultId());
+        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/debug/" + getSelectedVaultId());
 
         List<File> allTxtFilesToAnalyze = new ArrayList<>();
         List<String> selectedIds = new ArrayList<>();
@@ -621,7 +628,7 @@ public class DeveloperDebugSessionPanel extends AbstractDeveloperSessionPanel<Sd
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete local files for the selected session(s)?", "Confirm Local Delete", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/debug/" + toolboxProject.getVaultId());
+        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/debug/" + getSelectedVaultId());
         for (DeveloperLogItem<SdkDebugSession> item : selectedSessions) {
             if (item.isLocal()) {
                 String baseFilename = item.getItem().getName() + "." + item.getItem().getId();

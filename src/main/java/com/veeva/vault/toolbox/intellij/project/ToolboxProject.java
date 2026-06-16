@@ -9,7 +9,6 @@ import com.veeva.vault.toolbox.intellij.credentials.BasicAuth;
 import com.veeva.vault.toolbox.intellij.credentials.VaultCredentialManager;
 import com.veeva.vault.toolbox.intellij.listeners.ConnectionListener;
 import com.veeva.vault.toolbox.intellij.settings.*;
-import com.veeva.vault.toolbox.intellij.tasks.SaveCredentialsTask;
 import com.veeva.vault.toolbox.intellij.ui.LoginDialog;
 import com.veeva.vault.toolbox.intellij.ui.Message;
 import com.veeva.vault.vapil.api.client.VaultClient;
@@ -63,6 +62,51 @@ public class ToolboxProject {
     private ToolboxSettings toolboxSettings;
     private ToolWindow toolWindow;
     private final AtomicBoolean handlingSessionExpiration = new AtomicBoolean(false);
+
+    private java.util.function.Consumer<com.veeva.vault.toolbox.intellij.ui.LoginPanel.PendingCredentialSave> credentialSavePromptHandler;
+    private Runnable loginTabSwitchHandler;
+
+    /**
+     * Sets the handler for switching to the login tab.
+     *
+     * @param handler the runnable handler
+     */
+    public void setLoginTabSwitchHandler(Runnable handler) {
+        this.loginTabSwitchHandler = handler;
+    }
+
+    /**
+     * Requests a switch to the login tab.
+     */
+    public void requestLoginTabSwitch() {
+        if (loginTabSwitchHandler != null) {
+            loginTabSwitchHandler.run();
+        } else {
+            connectWithDialog();
+        }
+    }
+
+    /**
+     * Sets the handler for prompting credential saves.
+     *
+     * @param handler the consumer handler
+     */
+    public void setCredentialSavePromptHandler(java.util.function.Consumer<com.veeva.vault.toolbox.intellij.ui.LoginPanel.PendingCredentialSave> handler) {
+        this.credentialSavePromptHandler = handler;
+    }
+
+    /**
+     * Prompts the user to save the pending credential.
+     *
+     * @param pending the pending credential save
+     */
+    public void promptToSaveCredential(com.veeva.vault.toolbox.intellij.ui.LoginPanel.PendingCredentialSave pending) {
+        if (credentialSavePromptHandler != null) {
+            credentialSavePromptHandler.accept(pending);
+        } else {
+            com.veeva.vault.toolbox.intellij.ui.LoginPanel.promptToSaveCredential(null, pending);
+        }
+    }
 
     /**
      * Constructs a new ToolboxProject instance for the given IntelliJ project.
@@ -533,27 +577,25 @@ public class ToolboxProject {
      * Attempts to connect to the active Vault using stored credentials without showing a dialog.
      */
     public void connectSilent() {
-        if (this.isToolboxEnabled()) {
-            Vault currentVault = getActiveVault();
-            if (currentVault == null) return;
+        if (!this.isToolboxEnabled()) return;
+        Vault currentVault = getActiveVault();
+        if (currentVault == null) return;
 
-            switch (currentVault.getAuthenticationType()) {
-                case BASIC -> {
-                    BasicAuth basicAuth = VaultCredentialManager.getUsernamePassword(currentVault.getVaultDNS());
-                    if (basicAuth != null) {
-                        new Thread(() -> connectWithBasic(
-                                currentVault.getVaultDNS(),
-                                basicAuth.getUsername(),
-                                basicAuth.getPassword(),
-                                currentVault.getSaveSecret()
-                        )).start();
-                    }
-                }
-                case SESSION_ID -> connectWithSession(
-                        currentVault.getVaultDNS(),
-                        VaultCredentialManager.getSessionId(currentVault.getVaultDNS()),
-                        currentVault.getSaveSecret()
-                );
+        SavedCredential saved = AppSettings.findCredentialByDns(currentVault.getVaultDNS());
+        if (saved == null) return;
+
+        if (saved.authenticationType == Vault.AuthenticationType.BASIC) {
+            BasicAuth auth = VaultCredentialManager.getUsernamePasswordById(saved.id);
+            if (auth != null) {
+                boolean saveFlag = currentVault.getSaveSecret();
+                new Thread(() -> connectWithBasic(
+                        currentVault.getVaultDNS(), auth.getUsername(), auth.getPassword(), saveFlag
+                )).start();
+            }
+        } else {
+            String sessionId = VaultCredentialManager.getSessionIdById(saved.id);
+            if (sessionId != null && !sessionId.isBlank()) {
+                connectWithSession(currentVault.getVaultDNS(), sessionId, currentVault.getSaveSecret());
             }
         }
     }
@@ -643,12 +685,6 @@ public class ToolboxProject {
                             storageDns,
                             savePassword, true));
 
-                    ApplicationManager.getApplication().invokeLaterOnWriteThread(() -> {
-                        String passToSave = savePassword ? password : null;
-                        SaveCredentialsTask task = new SaveCredentialsTask(this.getProject(), storageDns, username, passToSave);
-                        task.queue();
-                    });
-
                     invokeConnectionListeners();
                     logger.debug("Connected to Vault");
                     return new ConnectionResult(true);
@@ -682,7 +718,10 @@ public class ToolboxProject {
         Throwable cause = e;
         while (cause != null) {
             if (cause instanceof java.net.UnknownHostException) {
-                return new ConnectionResult("Could not resolve host. Please check your Vault DNS for typos.");
+                return new ConnectionResult("Could not resolve host. Please check your Vault DNS for typos or verify your VPN connection.");
+            }
+            if (cause instanceof java.net.ConnectException) {
+                return new ConnectionResult("Connection refused. Please check your internet or VPN connection.");
             }
             if (cause instanceof javax.net.ssl.SSLHandshakeException) {
                 return new ConnectionResult("SSL Verification Failed. Try enabling 'Allow All Certificates' in Settings.");
@@ -693,19 +732,22 @@ public class ToolboxProject {
         String msg = e.getMessage();
         if (msg != null) {
             if (msg.contains("UnknownHostException") || msg.contains("Unable to resolve host")) {
-                return new ConnectionResult("Could not resolve host. Please check your Vault DNS for typos.");
+                return new ConnectionResult("Could not resolve host. Please check your Vault DNS for typos or verify your VPN connection.");
             }
             if (msg.contains("SSLHandshakeException") || msg.contains("PKIX path building failed")) {
                 return new ConnectionResult("SSL Verification Failed. Try enabling 'Allow All Certificates' in Settings.");
             }
-            if (e instanceof NullPointerException && msg.contains("HttpResponseConnector.getResponse()")) {
-                return new ConnectionResult("Could not connect to server. Please check your Vault DNS for typos.");
+            if (msg.contains("ConnectException") || msg.contains("Connection refused") || msg.contains("Connection timed out")) {
+                return new ConnectionResult("Network connection failed. Please check your internet or VPN connection.");
+            }
+            if (e instanceof NullPointerException && (msg.contains("HttpResponseConnector.getResponse()") || msg.contains("VaultResponse.setResponse(String)"))) {
+                return new ConnectionResult("Could not connect to server. Please check your internet or VPN connection, and verify your Vault DNS.");
             }
             return new ConnectionResult(msg);
         }
 
         if (e instanceof NullPointerException) {
-            return new ConnectionResult("Network connection failed. Please check your Vault DNS for typos.");
+            return new ConnectionResult("Network connection failed. Please check your internet or VPN connection, and verify your Vault DNS.");
         }
 
         return new ConnectionResult("An unexpected error occurred.");
@@ -771,10 +813,6 @@ public class ToolboxProject {
                             vaultDNS,
                             saveSessionId, true));
 
-                    String sessionToSave = saveSessionId ? sessionid : null;
-                    SaveCredentialsTask task = new SaveCredentialsTask(this.getProject(), vaultDNS, sessionToSave);
-                    task.queue();
-
                     invokeConnectionListeners();
                     logger.debug("Connected to Vault");
                     return new ConnectionResult(true);
@@ -794,7 +832,7 @@ public class ToolboxProject {
             return new ConnectionResult("Unknown Error");
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
-            return new ConnectionResult("Unknown Error");
+            return handleConnectionException(e);
         }
     }
 
@@ -1182,6 +1220,17 @@ public class ToolboxProject {
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
             return null;
+        }
+    }
+
+    /**
+     * Closes and removes all active project instances. This is called on plugin unload
+     * so that the static map is drained before the plugin class loader is garbage collected.
+     */
+    public static void disposeAllInstances() {
+        List<Project> projects = new ArrayList<>(vaultProjects.keySet());
+        for (Project project : projects) {
+            closeInstance(project);
         }
     }
 

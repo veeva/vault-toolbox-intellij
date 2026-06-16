@@ -17,11 +17,45 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.*;
 import java.util.List;
 
+import java.awt.Component;
+import java.awt.Dimension;
+
 /**
  * Factory class for creating and managing the Vault Toolbox tool window.
  * This class is "DumbAware", meaning it can be active while the project is being indexed.
  */
 final class ToolWindowPanel implements ToolWindowFactory, DumbAware {
+
+	/**
+	 * Wrapper to enforce a strict minimum visual layout size while allowing the parent to shrink smaller,
+	 * causing the layout to clip rather than squishing child components and triggering layout loop bugs.
+	 */
+	private static class ClippingWrapper extends JPanel {
+		private final Component child;
+
+		public ClippingWrapper(Component child) {
+			super(null); // Absolute positioning to disable automatic squishing
+			this.child = child;
+			add(child);
+		}
+
+		@Override
+		public void doLayout() {
+			int w = Math.max(getWidth(), 400);
+			int h = Math.max(getHeight(), 240);
+			child.setBounds(0, 0, w, h);
+		}
+
+		@Override
+		public Dimension getMinimumSize() {
+			return new Dimension(0, 0);
+		}
+
+		@Override
+		public Dimension getPreferredSize() {
+			return child.getPreferredSize();
+		}
+	}
 
 	/**
 	 * Performs additional initialization when the tool window is created.
@@ -47,7 +81,8 @@ final class ToolWindowPanel implements ToolWindowFactory, DumbAware {
 	@Override
 	public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
 		ToolWindowContent toolWindowContent = new ToolWindowContent(toolWindow, project);
-		Content content = ContentFactory.getInstance().createContent(toolWindowContent.getContentPanel(), "", false);
+		ClippingWrapper wrapper = new ClippingWrapper(toolWindowContent.getContentPanel());
+		Content content = ContentFactory.getInstance().createContent(wrapper, "", false);
 		toolWindow.getContentManager().addContent(content);
 
 		AnAction settingsAction = new AnAction("Settings", "Open Vault Toolbox Settings", ToolboxIcons.Gear) {

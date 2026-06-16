@@ -74,7 +74,7 @@ public class DeveloperProfilerSessionPanel extends AbstractDeveloperSessionPanel
                     DeveloperLogItem<SdkProfilingSession> item = allItems.get(sessionTable.convertRowIndexToModel(row));
 
                     if (item.isLocal()) {
-                        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/profiler/" + toolboxProject.getVaultId());
+                        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/profiler/" + getSelectedVaultId());
                         String sessionFolderName = item.getItem().getName() + "." + item.getItem().getId();
                         File sessionDir = new File(vaultLogsDir, sessionFolderName);
 
@@ -163,6 +163,11 @@ public class DeveloperProfilerSessionPanel extends AbstractDeveloperSessionPanel
      *
      * @return An array of column names.
      */
+    @Override
+    protected String getLogTypeSubdir() {
+        return "profiler";
+    }
+
     @Override
     protected String[] getColumnNames() {
         return new String[]{"Select", "Vault", "View", "Locate", "Name", "Label", "Status", "Description", "User ID", "User Name", "Created Date", "Expiration Date"};
@@ -299,6 +304,10 @@ public class DeveloperProfilerSessionPanel extends AbstractDeveloperSessionPanel
 
         actionGroup.addSeparator();
 
+        actionGroup.add(createImportAction(DeveloperLogsDialog.LogType.SDK_PROFILER));
+
+        actionGroup.addSeparator();
+
         actionGroup.add(new AnAction("Refresh", "Refresh list", AllIcons.Actions.Refresh) {
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
@@ -321,7 +330,7 @@ public class DeveloperProfilerSessionPanel extends AbstractDeveloperSessionPanel
                 Map<String, DeveloperLogItem<SdkProfilingSession>> itemMap = new HashMap<>();
                 List<String> userIds = new ArrayList<>();
 
-                File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/profiler/" + toolboxProject.getVaultId());
+                File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/profiler/" + getSelectedVaultId());
                 if (vaultLogsDir.exists()) {
                     File[] sessionDirs = vaultLogsDir.listFiles(File::isDirectory);
                     if (sessionDirs != null) {
@@ -341,19 +350,21 @@ public class DeveloperProfilerSessionPanel extends AbstractDeveloperSessionPanel
                     }
                 }
 
-                SdkProfilingSessionBulkResponse response = toolboxProject.getVaultClient()
-                        .newRequest(LogRequest.class)
-                        .retrieveAllProfilingSessions();
+                if (isOnConnectedVault()) {
+                    SdkProfilingSessionBulkResponse response = toolboxProject.getVaultClient()
+                            .newRequest(LogRequest.class)
+                            .retrieveAllProfilingSessions();
 
-                if (toolboxProject.handleSessionExpiration(response)) {
-                    return;
-                }
+                    if (toolboxProject.handleSessionExpiration(response)) {
+                        return;
+                    }
 
-                if (response != null && !response.isFailure()) {
-                    for (SdkProfilingSession vSession : response.getData()) {
-                        boolean wasLocal = itemMap.containsKey(vSession.getId());
-                        itemMap.put(vSession.getId(), new DeveloperLogItem<>(vSession, true, wasLocal));
-                        if (vSession.getUserId() != null) userIds.add(vSession.getUserId().toString());
+                    if (response != null && !response.isFailure()) {
+                        for (SdkProfilingSession vSession : response.getData()) {
+                            boolean wasLocal = itemMap.containsKey(vSession.getId());
+                            itemMap.put(vSession.getId(), new DeveloperLogItem<>(vSession, true, wasLocal));
+                            if (vSession.getUserId() != null) userIds.add(vSession.getUserId().toString());
+                        }
                     }
                 }
 
@@ -375,18 +386,14 @@ public class DeveloperProfilerSessionPanel extends AbstractDeveloperSessionPanel
                     userNames.clear();
                     userNames.putAll(newUserNames);
                     filterAndUpdateTable();
-                    if (sessionTable != null) {
-                        sessionTable.packAll();
-                    }
+
                 });
 
             } catch (Exception e) {
                 logger.error("Error loading SDK Profiler sessions", e);
                 SwingUtilities.invokeLater(() -> {
                     filterAndUpdateTable();
-                    if (sessionTable != null) {
-                        sessionTable.packAll();
-                    }
+
                     JOptionPane.showMessageDialog(this, "An error occurred while loading sessions.", "Error", JOptionPane.ERROR_MESSAGE);
                 });
             }
@@ -593,7 +600,7 @@ public class DeveloperProfilerSessionPanel extends AbstractDeveloperSessionPanel
         if (selectedSessions.isEmpty()) return;
 
         Map<SdkProfilingSession, File> sessionFiles = new HashMap<>();
-        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/profiler/" + toolboxProject.getVaultId());
+        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/profiler/" + getSelectedVaultId());
 
         for (DeveloperLogItem<SdkProfilingSession> item : selectedSessions) {
             if (item.isLocal()) {
@@ -627,7 +634,7 @@ public class DeveloperProfilerSessionPanel extends AbstractDeveloperSessionPanel
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete local files for the selected session(s)?", "Confirm Local Delete", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/profiler/" + toolboxProject.getVaultId());
+        File vaultLogsDir = new File(toolboxProject.getLogsDirectory(), "/profiler/" + getSelectedVaultId());
 
         for (DeveloperLogItem<SdkProfilingSession> item : selectedSessions) {
             if (item.isLocal()) {

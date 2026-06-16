@@ -2,14 +2,17 @@ package com.veeva.vault.toolbox.intellij.ui;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.options.ShowSettingsUtil;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
+import com.intellij.ui.TitledSeparator;
 import com.intellij.ui.components.*;
 import com.intellij.util.ui.FormBuilder;
 import com.intellij.util.ui.JBUI;
 import com.veeva.vault.toolbox.intellij.credentials.VaultCredentialManager;
 import com.veeva.vault.toolbox.intellij.settings.SavedCredential;
 import com.veeva.vault.toolbox.intellij.settings.Vault;
-import org.jdesktop.swingx.JXTable;
-
+import com.intellij.ui.table.JBTable;
 import javax.swing.*;
 import javax.swing.event.RowSorterEvent;
 import javax.swing.event.RowSorterListener;
@@ -30,16 +33,18 @@ public class AppSettingsControl {
     private final JBTextField vaultDnsField = new JBTextField();
     private final JBTextField usernameField = new JBTextField();
     private final JBTextField csvMaxRowsField = new JBTextField(6);
+    private final JBCheckBox openLogsInDesktopField = new JBCheckBox("Automatically open analyzed logs in Desktop");
     private final JSpinner connectionTimeoutField = new JSpinner(new SpinnerNumberModel(15, 1, 300, 1));
     private final JBRadioButton basicAuthField = new JBRadioButton("Basic");
     private final JBRadioButton sessionIdField = new JBRadioButton("Session");
     private final JBPanel authenticationTypePanel = new JBPanel();
     private final ButtonGroup authGroup = new ButtonGroup();
     private final JBCheckBox allowAllCertificatesField = new JBCheckBox("Allow All Certificates");
+    private final JBCheckBox enableSdkInspectionsField = new JBCheckBox("Vault Java SDK Code Inspections");
 
     private final List<SavedCredential> credentials = new ArrayList<>();
     private final CredentialTableModel tableModel = new CredentialTableModel();
-    private final JXTable credentialsTable = new JXTable(tableModel);
+    private final JBTable credentialsTable = new JBTable(tableModel);
 
     private static final int PAGE_SIZE = 10;
     private int currentPage = 0;
@@ -65,7 +70,22 @@ public class AppSettingsControl {
         basicAuthField.addActionListener(e -> changeAuthenticationType());
         sessionIdField.addActionListener(e -> changeAuthenticationType());
 
-        JPanel settingsPanel = FormBuilder.createFormBuilder()
+        JPanel southWrapper = new JPanel(new BorderLayout(0, 0));
+        southWrapper.add(buildFileViewerSection(), BorderLayout.NORTH);
+        southWrapper.add(buildCodeAnalysisSection(), BorderLayout.CENTER);
+
+        mainPanel = new JPanel(new BorderLayout(0, 0));
+        mainPanel.add(buildAuthenticationSection(), BorderLayout.CENTER);
+        mainPanel.add(southWrapper, BorderLayout.SOUTH);
+    }
+
+    /**
+     * Builds the Authentication section containing connection settings and saved credentials.
+     *
+     * @return the authentication section panel
+     */
+    private JPanel buildAuthenticationSection() {
+        JPanel form = FormBuilder.createFormBuilder()
                 .addComponent(autoConnectField, 1)
                 .addComponent(allowAllCertificatesField, 1)
                 .addLabeledComponent(new JBLabel("Default Vault DNS"), vaultDnsField, 1, false)
@@ -74,24 +94,6 @@ public class AppSettingsControl {
                 .addLabeledComponent(new JBLabel("Connection Timeout (seconds)"), connectionTimeoutField, 1, false)
                 .getPanel();
 
-        JPanel csvFieldWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        csvFieldWrapper.add(csvMaxRowsField);
-        JPanel csvPanel = FormBuilder.createFormBuilder()
-                .addLabeledComponent(new JBLabel("CSV Max Rows"), csvFieldWrapper, 1, false)
-                .getPanel();
-
-        mainPanel = new JPanel(new BorderLayout(0, 12));
-        mainPanel.add(settingsPanel, BorderLayout.NORTH);
-        mainPanel.add(buildCredentialsSection(), BorderLayout.CENTER);
-        mainPanel.add(csvPanel, BorderLayout.SOUTH);
-    }
-
-    /**
-     * Builds the credentials section of the settings panel.
-     *
-     * @return The credentials section JPanel.
-     */
-    private JPanel buildCredentialsSection() {
         credentialsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         credentialsTable.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
         credentialsTable.getColumnModel().getColumn(0).setPreferredWidth(60);
@@ -100,6 +102,7 @@ public class AppSettingsControl {
         credentialsTable.getColumnModel().getColumn(4).setMaxWidth(80);
         credentialsTable.setRowHeight(credentialsTable.getRowHeight() + 4);
 
+        credentialsTable.setAutoCreateRowSorter(true);
         credentialsTable.getRowSorter().addRowSorterListener(new RowSorterListener() {
             @Override
             public void sorterChanged(RowSorterEvent e) {
@@ -151,8 +154,6 @@ public class AppSettingsControl {
         buttonPanel.add(Box.createHorizontalStrut(8));
         buttonPanel.add(setDefaultButton);
 
-        JLabel sectionLabel = new JLabel("Saved Credentials:");
-
         prevPageButton = new JButton(AllIcons.Actions.Back);
         nextPageButton = new JButton(AllIcons.Actions.Forward);
         pageLabel = new JLabel("1 / 1", SwingConstants.CENTER);
@@ -166,15 +167,38 @@ public class AppSettingsControl {
         pagePanel.add(pageLabel);
         pagePanel.add(nextPageButton);
 
-        JPanel southPanel = new JPanel(new BorderLayout(0, 2));
-        southPanel.add(pagePanel, BorderLayout.NORTH);
-        southPanel.add(buttonPanel, BorderLayout.SOUTH);
+        JPanel tableButtons = new JPanel(new BorderLayout(0, 2));
+        tableButtons.add(pagePanel, BorderLayout.NORTH);
+        tableButtons.add(buttonPanel, BorderLayout.SOUTH);
+
+        JPanel northPanel = new JPanel(new BorderLayout(0, 6));
+        northPanel.add(new TitledSeparator("Authentication"), BorderLayout.NORTH);
+        northPanel.add(form, BorderLayout.CENTER);
 
         JPanel section = new JPanel(new BorderLayout(0, 6));
-        section.setBorder(JBUI.Borders.emptyTop(4));
-        section.add(sectionLabel, BorderLayout.NORTH);
+        section.add(northPanel, BorderLayout.NORTH);
         section.add(scrollPane, BorderLayout.CENTER);
-        section.add(southPanel, BorderLayout.SOUTH);
+        section.add(tableButtons, BorderLayout.SOUTH);
+        return section;
+    }
+
+    /**
+     * Builds the File Viewer settings section containing the maximum rows field.
+     *
+     * @return the File Viewer section panel
+     */
+    private JPanel buildFileViewerSection() {
+        JPanel csvFieldWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        csvFieldWrapper.add(csvMaxRowsField);
+        JPanel form = FormBuilder.createFormBuilder()
+                .addLabeledComponent(new JBLabel("CSV Max Rows"), csvFieldWrapper, 1, false)
+                .addComponent(openLogsInDesktopField, 1)
+                .getPanel();
+
+        JPanel section = new JPanel(new BorderLayout(0, 6));
+        section.setBorder(JBUI.Borders.emptyTop(8));
+        section.add(new TitledSeparator("File Viewer"), BorderLayout.NORTH);
+        section.add(form, BorderLayout.CENTER);
         return section;
     }
 
@@ -318,6 +342,7 @@ public class AppSettingsControl {
         int start = currentPage * PAGE_SIZE;
         int end = Math.min(start + PAGE_SIZE, credentials.size());
         for (int i = start; i < end; i++) tableModel.addRow(toRow(credentials.get(i)));
+        TableUtils.autoResizeColumns(credentialsTable);
         updatePageControls();
     }
 
@@ -485,6 +510,14 @@ public class AppSettingsControl {
         csvMaxRowsField.setText(String.valueOf(csvMaxRows));
     }
 
+    public boolean getOpenLogsInDesktop() {
+        return openLogsInDesktopField.isSelected();
+    }
+
+    public void setOpenLogsInDesktop(boolean openLogsInDesktop) {
+        this.openLogsInDesktopField.setSelected(openLogsInDesktop);
+    }
+
     /**
      * Gets the connection timeout value in seconds.
      *
@@ -551,14 +584,22 @@ public class AppSettingsControl {
     /**
      * Sets whether to allow all SSL certificates.
      *
-     * @param allowAllCertificates true to allow all certificates, false otherwise.
+     * @param allowAllCertificates true to allow, false otherwise.
      */
     public void setAllowAllCertificates(boolean allowAllCertificates) {
         allowAllCertificatesField.setSelected(allowAllCertificates);
     }
 
+    public boolean getEnableSdkInspections() {
+        return enableSdkInspectionsField.isSelected();
+    }
+
+    public void setEnableSdkInspections(boolean enabled) {
+        this.enableSdkInspectionsField.setSelected(enabled);
+    }
+
     /**
-     * Gets the selected authentication type.
+     * Gets the list of saved credentials.
      *
      * @return The selected {@link Vault.AuthenticationType}.
      */
@@ -597,6 +638,63 @@ public class AppSettingsControl {
             usernameField.setText("");
             usernameField.setVisible(false);
         }
+    }
+
+    /**
+     * Builds the Code Analysis section, containing subcategories for code inspection tools.
+     *
+     * @return the Code Analysis section panel
+     */
+    private JPanel buildCodeAnalysisSection() {
+        JPanel form = FormBuilder.createFormBuilder()
+                .addComponent(buildSdkInspectionsSection(), 1)
+                .getPanel();
+
+        JPanel section = new JPanel(new BorderLayout(0, 6));
+        section.setBorder(JBUI.Borders.emptyTop(8));
+        section.add(new TitledSeparator("Code Analysis"), BorderLayout.NORTH);
+        section.add(form, BorderLayout.CENTER);
+        return section;
+    }
+
+    /**
+     * Builds the Vault Java SDK Code Inspections subsection, containing a label
+     * and a button that opens the IDE Inspections settings.
+     *
+     * @return the inspections subsection panel
+     */
+    private JPanel buildSdkInspectionsSection() {
+        JButton manageButton = new JButton("Configure");
+        manageButton.addActionListener(e -> {
+            Project[] openProjects = ProjectManager.getInstance().getOpenProjects();
+            Project project = openProjects.length > 0 ? openProjects[0] : null;
+
+            ShowSettingsUtil.getInstance().showSettingsDialog(project, com.intellij.profile.codeInspection.ui.ErrorsConfigurable.class, configurable -> {
+                if (configurable != null) {
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        try {
+                            configurable.selectInspectionTool("VaultSdkFileIo");
+                        } catch (Exception ex) {
+
+                        }
+                    }, com.intellij.openapi.application.ModalityState.any());
+                }
+            });
+
+            if (project != null) {
+                com.intellij.codeInspection.ex.InspectionProfileImpl profile = com.intellij.profile.codeInspection.InspectionProjectProfileManager.getInstance(project).getCurrentProfile();
+                com.intellij.codeInspection.ex.Tools tools = profile.getToolsOrNull("VaultSdkFileIo", project);
+                if (tools != null) {
+                    enableSdkInspectionsField.setSelected(tools.isEnabled());
+                }
+            }
+        });
+
+        JPanel section = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        section.add(enableSdkInspectionsField);
+        section.add(Box.createHorizontalStrut(12));
+        section.add(manageButton);
+        return section;
     }
 
     private static class CredentialTableModel extends DefaultTableModel {

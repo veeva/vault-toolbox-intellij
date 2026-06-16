@@ -1,0 +1,60 @@
+<html>
+<body>
+<p>
+  Reports direct filesystem access, NIO file operations, console output, forbidden system
+  calls, and sandbox-unavailable environment lookups in the Vault Java SDK.
+</p>
+
+<p><b>What is flagged:</b></p>
+<ul>
+  <li>
+    <b>java.io file classes</b> — imports or instantiation of
+    <code>File</code>, <code>FileInputStream</code>, <code>FileOutputStream</code>,
+    <code>FileReader</code>, <code>FileWriter</code>, <code>RandomAccessFile</code>, <code>FileDescriptor</code>
+  </li>
+  <li>
+    <b>java.nio.file</b> — imports of <code>java.nio.file.*</code> or calls to
+    <code>Files.*</code>, <code>Paths.get()</code>, <code>Path.of()</code>, <code>FileChannel.*</code>
+  </li>
+  <li>
+    <b>Console output</b> — <code>System.out</code> and <code>System.err</code>
+    (output goes nowhere in Vault — use <code>LogService</code> instead)
+  </li>
+  <li>
+    <b>Environment / property access</b> — <code>System.getenv()</code>,
+    <code>System.getProperty()</code>, <code>System.getProperties()</code>
+    silently return <code>null</code> or empty values inside the Vault sandbox
+  </li>
+  <li>
+    <b>System / Runtime calls</b> — <code>System.exit()</code>, <code>Runtime.exec()</code>,
+    <code>Runtime.halt()</code> — quick-fix available to remove the call
+  </li>
+</ul>
+
+<p><b>Example violations:</b></p>
+<pre>
+import java.io.File;               // flagged
+import java.nio.file.Files;        // flagged
+
+public class MyTrigger implements RecordTrigger {
+    public void execute(RecordTriggerContext context) {
+        new File("/tmp/x");                      // flagged
+        Files.readAllBytes(Path.of("/tmp/x"));   // flagged
+
+        System.out.println("debug");             // flagged
+        String val = System.getenv("MY_VAR");    // flagged — always null in Vault
+        String prop = System.getProperty("foo"); // flagged — always null in Vault
+
+        System.exit(1);                          // flagged — quick-fix: remove call
+    }
+}
+</pre>
+
+<p><b>Recommended alternative:</b></p>
+<p>
+  Use <code>ServiceLocator.locate(LogService.class)</code> for all logging and diagnostics.
+  File storage is not supported; persist data via <code>RecordService</code> or <code>DocumentService</code>.
+  Configuration values should be stored in Vault object records, not environment variables.
+</p>
+</body>
+</html>

@@ -1,10 +1,12 @@
 package com.veeva.vault.toolbox.intellij.ui;
 
 import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.ui.components.JBPanel;
+import com.intellij.ui.components.JBScrollPane;
+import com.intellij.ui.table.JBTable;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
 import com.veeva.vault.vapil.api.model.response.QueryResponse;
 import com.veeva.vault.vapil.api.request.QueryRequest;
-import org.jdesktop.swingx.JXTable;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -20,7 +22,7 @@ import java.util.List;
  */
 public class ClassFilterDialog extends DialogWrapper {
     private final ToolboxProject toolboxProject;
-    private JXTable table;
+    private JBTable table;
     private DefaultTableModel tableModel;
 
     /**
@@ -44,7 +46,7 @@ public class ClassFilterDialog extends DialogWrapper {
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
+        JBPanel<?> panel = new JBPanel<>(new BorderLayout());
         panel.setPreferredSize(new Dimension(800, 400));
 
         String[] columnNames = {"Select", "Name", "Code Type"};
@@ -63,20 +65,19 @@ public class ClassFilterDialog extends DialogWrapper {
             }
         };
 
-        table = new JXTable(tableModel);
+        table = new JBTable(tableModel);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-        table.setSortable(true);
+        table.setAutoCreateRowSorter(true);
 
         TableColumn selectColumn = table.getColumnModel().getColumn(0);
         selectColumn.setMaxWidth(50);
         selectColumn.setMinWidth(50);
         selectColumn.setPreferredWidth(50);
-        table.getColumnExt(0).setSortable(false);
 
         table.getColumnModel().getColumn(1).setPreferredWidth(500);
         table.getColumnModel().getColumn(2).setPreferredWidth(200);
 
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        panel.add(new JBScrollPane(table), BorderLayout.CENTER);
         return panel;
     }
 
@@ -99,6 +100,7 @@ public class ClassFilterDialog extends DialogWrapper {
                                     result.getString("component_type__v")
                             });
                         }
+                        TableUtils.autoResizeColumns(table);
                     });
                 }
             }

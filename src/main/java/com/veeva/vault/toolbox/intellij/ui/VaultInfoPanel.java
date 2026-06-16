@@ -1,7 +1,16 @@
 package com.veeva.vault.toolbox.intellij.ui;
 
 import com.intellij.icons.AllIcons;
+import com.intellij.ui.components.JBLabel;
+import com.intellij.ui.components.JBPanel;
+import com.intellij.ui.components.fields.ExtendableTextField;
+import com.intellij.ui.components.fields.ExtendableTextComponent;
+import com.intellij.util.ui.FormBuilder;
 import com.intellij.util.ui.JBUI;
+import com.intellij.openapi.ui.MessageType;
+import com.intellij.openapi.ui.popup.Balloon;
+import com.intellij.openapi.ui.popup.JBPopupFactory;
+import com.intellij.ui.awt.RelativePoint;
 import com.veeva.vault.toolbox.intellij.credentials.VaultCredentialManager;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
 import com.veeva.vault.toolbox.intellij.settings.AppSettings;
@@ -22,29 +31,40 @@ import java.util.Objects;
 public class VaultInfoPanel extends ToolboxPanel {
     private static final Logger logger = LoggerFactory.getLogger(VaultInfoPanel.class);
 
-    JLabel vaultNameLabel = new JLabel("Vault Name:");
-    JTextField vaultNameValue = new JTextField(30);
-    JLabel vaultDnsLabel = new JLabel("Vault DNS:");
-    JTextField vaultDnsValue = new JTextField(30);
-    JLabel vaultIdLabel = new JLabel("Vault ID:");
-    JTextField vaultIdValue = new JTextField(30);
-    JLabel vaultFamilyLabel = new JLabel("Vault Family:");
-    JTextField vaultFamilyValue = new JTextField(30);
-    JLabel vaultApplicationLabel = new JLabel("Vault Application:");
-    JTextField vaultApplicationValue = new JTextField(30);
-    JLabel domainTypeLabel = new JLabel("Domain Type:");
-    JTextField domainTypeValue = new JTextField(30);
-    JLabel userLabel = new JLabel("User:");
-    JTextField userValue = new JTextField(30);
-
-    private JLabel activeCopyIcon = null;
-    private javax.swing.Timer revertTimer = null;
-
-    private JPanel saveBanner;
-    private JPanel bannerCards;
-    private JLabel bannerMessageLabel;
-    private JTextField bannerLabelField;
-    private LoginPanel.PendingCredentialSave pendingSave;
+    /** Label for the Vault Name field. */
+    JBLabel vaultNameLabel = new JBLabel("Vault Name:");
+    /** Text field for displaying the Vault Name. */
+    ExtendableTextField vaultNameValue = new ExtendableTextField();
+    
+    /** Label for the Vault DNS field. */
+    JBLabel vaultDnsLabel = new JBLabel("Vault DNS:");
+    /** Text field for displaying the Vault DNS. */
+    ExtendableTextField vaultDnsValue = new ExtendableTextField();
+    
+    /** Label for the Vault ID field. */
+    JBLabel vaultIdLabel = new JBLabel("Vault ID:");
+    /** Text field for displaying the Vault ID. */
+    ExtendableTextField vaultIdValue = new ExtendableTextField();
+    
+    /** Label for the Vault Family field. */
+    JBLabel vaultFamilyLabel = new JBLabel("Vault Family:");
+    /** Text field for displaying the Vault Family. */
+    ExtendableTextField vaultFamilyValue = new ExtendableTextField();
+    
+    /** Label for the Vault Application field. */
+    JBLabel vaultApplicationLabel = new JBLabel("Vault Application:");
+    /** Text field for displaying the Vault Application. */
+    ExtendableTextField vaultApplicationValue = new ExtendableTextField();
+    
+    /** Label for the Domain Type field. */
+    JBLabel domainTypeLabel = new JBLabel("Domain Type:");
+    /** Text field for displaying the Domain Type. */
+    ExtendableTextField domainTypeValue = new ExtendableTextField();
+    
+    /** Label for the User field. */
+    JBLabel userLabel = new JBLabel("User:");
+    /** Text field for displaying the User. */
+    ExtendableTextField userValue = new ExtendableTextField();
 
     /**
      * Initializes the Vault Info Panel with the specified project.
@@ -61,59 +81,24 @@ public class VaultInfoPanel extends ToolboxPanel {
      */
     private void init() {
         this.setLayout(new BorderLayout());
-        this.setSize(400, 300);
-        this.setPreferredSize(new Dimension(400, 300));
-        this.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
-
-        JPanel formPanel = new JPanel(new GridBagLayout());
 
         vaultNameValue.setDisabledTextColor(vaultDnsLabel.getForeground());
-        JPanel vaultNamePanel = new JPanel(new GridLayout(2, 1));
-        vaultNamePanel.add(vaultNameLabel);
-        vaultNamePanel.add(addInlineCopyIcon(vaultNameValue));
-
         vaultDnsValue.setDisabledTextColor(vaultDnsLabel.getForeground());
-        JPanel vaultDnsPanel = new JPanel(new GridLayout(2, 1));
-        vaultDnsPanel.add(vaultDnsLabel);
-        vaultDnsPanel.add(addInlineCopyIcon(vaultDnsValue));
-
         vaultIdValue.setDisabledTextColor(vaultDnsLabel.getForeground());
-        JPanel vaultIdPanel = new JPanel(new GridLayout(2, 1));
-        vaultIdPanel.add(vaultIdLabel);
-        vaultIdPanel.add(addInlineCopyIcon(vaultIdValue));
-
         vaultFamilyValue.setDisabledTextColor(vaultDnsLabel.getForeground());
-        JPanel vaultFamilyPanel = new JPanel(new GridLayout(2, 1));
-        vaultFamilyPanel.add(vaultFamilyLabel);
-        vaultFamilyPanel.add(addInlineCopyIcon(vaultFamilyValue));
-
         vaultApplicationValue.setDisabledTextColor(vaultDnsLabel.getForeground());
-        JPanel vaultApplicationPanel = new JPanel(new GridLayout(2, 1));
-        vaultApplicationPanel.add(vaultApplicationLabel);
-        vaultApplicationPanel.add(addInlineCopyIcon(vaultApplicationValue));
-
         domainTypeValue.setDisabledTextColor(vaultDnsLabel.getForeground());
-        JPanel domainTypePanel = new JPanel(new GridLayout(2, 1));
-        domainTypePanel.add(domainTypeLabel);
-        domainTypePanel.add(addInlineCopyIcon(domainTypeValue));
-
         userValue.setDisabledTextColor(vaultDnsLabel.getForeground());
-        JPanel userPanel = new JPanel(new GridLayout(2, 1));
-        userPanel.add(userLabel);
-        userPanel.add(addInlineCopyIcon(userValue));
 
-        GridBagConstraints formGbc = new GridBagConstraints();
-        formGbc.fill = GridBagConstraints.HORIZONTAL;
-        formGbc.weightx = 1.0;
-        formGbc.gridx = 0;
-
-        formGbc.gridy = 0; formPanel.add(vaultNamePanel, formGbc);
-        formGbc.gridy = 1; formPanel.add(vaultDnsPanel, formGbc);
-        formGbc.gridy = 2; formPanel.add(vaultIdPanel, formGbc);
-        formGbc.gridy = 3; formPanel.add(vaultFamilyPanel, formGbc);
-        formGbc.gridy = 4; formPanel.add(vaultApplicationPanel, formGbc);
-        formGbc.gridy = 5; formPanel.add(domainTypePanel, formGbc);
-        formGbc.gridy = 6; formPanel.add(userPanel, formGbc);
+        JPanel formPanel = FormBuilder.createFormBuilder()
+                .addLabeledComponent(vaultNameLabel, addInlineCopyIcon(vaultNameValue), 1, true)
+                .addLabeledComponent(vaultDnsLabel, addInlineCopyIcon(vaultDnsValue), 1, true)
+                .addLabeledComponent(vaultIdLabel, addInlineCopyIcon(vaultIdValue), 1, true)
+                .addLabeledComponent(vaultFamilyLabel, addInlineCopyIcon(vaultFamilyValue), 1, true)
+                .addLabeledComponent(vaultApplicationLabel, addInlineCopyIcon(vaultApplicationValue), 1, true)
+                .addLabeledComponent(domainTypeLabel, addInlineCopyIcon(domainTypeValue), 1, true)
+                .addLabeledComponent(userLabel, addInlineCopyIcon(userValue), 1, true)
+                .getPanel();
 
         JPanel contentPanel = new JPanel(new GridBagLayout());
         contentPanel.setBorder(JBUI.Borders.empty(20, 20, 10, 20));
@@ -131,272 +116,199 @@ public class VaultInfoPanel extends ToolboxPanel {
         contentPanel.add(formPanel, gbc);
 
         this.add(contentPanel, BorderLayout.CENTER);
-
-        saveBanner = buildSaveBanner();
-        saveBanner.setVisible(false);
-        this.add(saveBanner, BorderLayout.SOUTH);
     }
 
     /**
-     * Builds the banner for saving or updating credentials.
-     *
-     * @return The banner JPanel.
+     * Extension for ExtendableTextComponent that provides a copy-to-clipboard action.
      */
-    private JPanel buildSaveBanner() {
-        bannerMessageLabel = new JLabel();
-        bannerLabelField = new JTextField();
+    private abstract static class CopyExtension implements ExtendableTextComponent.Extension {
+        Icon currentIcon = AllIcons.Actions.Copy;
+        String tooltip = "Copy to clipboard";
 
-        JButton yesButton = new JButton("Yes");
-        JButton noButton = new JButton("No");
-        yesButton.addActionListener(e -> onBannerYes());
-        noButton.addActionListener(e -> hideSaveBanner());
-
-        JPanel askButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        askButtons.setOpaque(false);
-        askButtons.add(yesButton);
-        askButtons.add(noButton);
-
-        JPanel askCard = new JPanel(new BorderLayout(8, 0));
-        askCard.setOpaque(false);
-        askCard.add(bannerMessageLabel, BorderLayout.CENTER);
-        askCard.add(askButtons, BorderLayout.EAST);
-
-        JButton saveButton = new JButton("Save");
-        JButton cancelButton = new JButton("Cancel");
-        saveButton.addActionListener(e -> onBannerSave());
-        cancelButton.addActionListener(e -> hideSaveBanner());
-
-        JPanel labelButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        labelButtons.setOpaque(false);
-        labelButtons.add(saveButton);
-        labelButtons.add(cancelButton);
-
-        JPanel labelLeft = new JPanel(new BorderLayout(6, 0));
-        labelLeft.setOpaque(false);
-        labelLeft.add(new JLabel("Credential label:"), BorderLayout.WEST);
-        labelLeft.add(bannerLabelField, BorderLayout.CENTER);
-
-        JPanel labelCard = new JPanel(new BorderLayout(8, 0));
-        labelCard.setOpaque(false);
-        labelCard.add(labelLeft, BorderLayout.CENTER);
-        labelCard.add(labelButtons, BorderLayout.EAST);
-
-        bannerCards = new JPanel(new CardLayout());
-        bannerCards.setOpaque(false);
-        bannerCards.add(askCard, "ask");
-        bannerCards.add(labelCard, "label");
-
-        JPanel content = new JPanel(new BorderLayout());
-        content.setOpaque(false);
-        content.setBorder(JBUI.Borders.empty(8, 20, 12, 20));
-        content.add(bannerCards, BorderLayout.CENTER);
-
-        JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.add(new JSeparator(), BorderLayout.NORTH);
-        wrapper.add(content, BorderLayout.CENTER);
-        return wrapper;
-    }
-
-    /**
-     * Shows the inline save/update credential banner after a successful login.
-     *
-     * @param pending The credential context returned by {@link LoginPanel}.
-     */
-    public void showSaveCredentialPrompt(LoginPanel.PendingCredentialSave pending) {
-        this.pendingSave = pending;
-
-        if (pending.matchedCred != null) {
-            String label = (pending.matchedCred.label != null && !pending.matchedCred.label.isEmpty())
-                    ? pending.matchedCred.label : pending.matchedCred.vaultDNS;
-            boolean dnsChanged = !pending.vaultDns.equalsIgnoreCase(pending.matchedCred.vaultDNS);
-            boolean usernameChanged = pending.isBasic && !pending.username.equals(pending.matchedCred.username);
-            if (dnsChanged || usernameChanged) {
-                bannerMessageLabel.setText("Update saved credential \"" + label + "\" with these changes?");
-            } else {
-                bannerMessageLabel.setText("Update saved " + (pending.isBasic ? "password" : "session ID")
-                        + " for \"" + label + "\"?");
+        private final Icon unhoveredIcon = new Icon() {
+            /**
+             * Paints the icon.
+             *
+             * @param c the component
+             * @param g the graphics context
+             * @param x the x coordinate
+             * @param y the y coordinate
+             */
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                currentIcon.paintIcon(c, g, x, y);
             }
-        } else {
-            bannerMessageLabel.setText("Save these credentials?");
-            bannerLabelField.setText(pending.vaultDns);
-        }
 
-        ((CardLayout) bannerCards.getLayout()).show(bannerCards, "ask");
-        saveBanner.setVisible(true);
-        revalidate();
-    }
-
-    /**
-     * Handles the user clicking "Yes" on the save credentials banner.
-     */
-    private void onBannerYes() {
-        if (pendingSave == null) return;
-
-        if (pendingSave.matchedCred != null) {
-            final LoginPanel.PendingCredentialSave save = pendingSave;
-            save.matchedCred.vaultDNS = save.vaultDns;
-            if (save.isBasic) save.matchedCred.username = save.username;
-            com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread(() -> {
-                if (save.isBasic) {
-                    VaultCredentialManager.setUsernamePasswordById(save.matchedCred.id, save.username, save.password);
-                } else {
-                    VaultCredentialManager.setSessionIdById(save.matchedCred.id, save.sessionId);
-                }
-            });
-            hideSaveBanner();
-        } else {
-            ((CardLayout) bannerCards.getLayout()).show(bannerCards, "label");
-        }
-    }
-
-    /**
-     * Handles the user clicking "Save" on the credential label input banner.
-     */
-    private void onBannerSave() {
-        if (pendingSave == null) return;
-
-        String name = bannerLabelField.getText().trim();
-        if (name.isEmpty()) name = pendingSave.vaultDns;
-
-        AppSettings.AppState appState = Objects.requireNonNull(AppSettings.getInstance().getState());
-
-        final String finalName = name;
-        SavedCredential duplicate = appState.savedCredentials.stream()
-                .filter(c -> finalName.equalsIgnoreCase(c.label))
-                .findFirst().orElse(null);
-
-        if (duplicate != null) {
-            int choice = javax.swing.JOptionPane.showConfirmDialog(
-                    this,
-                    "A credential with label \"" + name + "\" already exists. Overwrite it?",
-                    "Duplicate Label",
-                    javax.swing.JOptionPane.YES_NO_OPTION,
-                    javax.swing.JOptionPane.WARNING_MESSAGE);
-            if (choice != javax.swing.JOptionPane.YES_OPTION) return;
-
-            final LoginPanel.PendingCredentialSave save = pendingSave;
-            duplicate.vaultDNS = save.vaultDns;
-            duplicate.authenticationType = save.isBasic
-                    ? com.veeva.vault.toolbox.intellij.settings.Vault.AuthenticationType.BASIC
-                    : com.veeva.vault.toolbox.intellij.settings.Vault.AuthenticationType.SESSION_ID;
-            if (save.isBasic) duplicate.username = save.username;
-            final SavedCredential finalDuplicate = duplicate;
-            com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread(() -> {
-                if (save.isBasic) {
-                    VaultCredentialManager.setUsernamePasswordById(finalDuplicate.id, save.username, save.password);
-                } else {
-                    VaultCredentialManager.setSessionIdById(finalDuplicate.id, save.sessionId);
-                }
-            });
-            hideSaveBanner();
-            return;
-        }
-
-        SavedCredential newCred = new SavedCredential();
-        newCred.label = name;
-        newCred.vaultDNS = pendingSave.vaultDns;
-        newCred.authenticationType = pendingSave.isBasic
-                ? com.veeva.vault.toolbox.intellij.settings.Vault.AuthenticationType.BASIC
-                : com.veeva.vault.toolbox.intellij.settings.Vault.AuthenticationType.SESSION_ID;
-        if (pendingSave.isBasic) newCred.username = pendingSave.username;
-
-        appState.savedCredentials.add(newCred);
-
-        final LoginPanel.PendingCredentialSave save = pendingSave;
-        final SavedCredential finalNewCred = newCred;
-        com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread(() -> {
-            if (save.isBasic) {
-                VaultCredentialManager.setUsernamePasswordById(finalNewCred.id, save.username, save.password);
-            } else {
-                VaultCredentialManager.setSessionIdById(finalNewCred.id, save.sessionId);
+            /**
+             * Gets the icon width.
+             *
+             * @return the icon width
+             */
+            @Override
+            public int getIconWidth() {
+                return currentIcon.getIconWidth();
             }
-        });
 
-        hideSaveBanner();
+            /**
+             * Gets the icon height.
+             *
+             * @return the icon height
+             */
+            @Override
+            public int getIconHeight() {
+                return currentIcon.getIconHeight();
+            }
+        };
+
+        private final Icon hoveredIcon = new Icon() {
+            /**
+             * Paints the icon.
+             *
+             * @param c the component
+             * @param g the graphics context
+             * @param x the x coordinate
+             * @param y the y coordinate
+             */
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setColor(new com.intellij.ui.JBColor(new java.awt.Color(0, 0, 0, 20), new java.awt.Color(255, 255, 255, 30)));
+                g2.fillRoundRect(x - 2, y - 2, getIconWidth() + 4, getIconHeight() + 4, 4, 4);
+                g2.dispose();
+                currentIcon.paintIcon(c, g, x, y);
+            }
+
+            /**
+             * Gets the icon width.
+             *
+             * @return the icon width
+             */
+            @Override
+            public int getIconWidth() {
+                return currentIcon.getIconWidth();
+            }
+
+            /**
+             * Gets the icon height.
+             *
+             * @return the icon height
+             */
+            @Override
+            public int getIconHeight() {
+                return currentIcon.getIconHeight();
+            }
+        };
+
+        /**
+         * Gets the icon to display.
+         *
+         * @param hovered whether the mouse is hovering over the icon
+         * @return the icon
+         */
+        @Override
+        public Icon getIcon(boolean hovered) {
+            return hovered ? hoveredIcon : unhoveredIcon;
+        }
+
+        /**
+         * Gets the tooltip text for the icon.
+         *
+         * @return the tooltip text
+         */
+        @Override
+        public String getTooltip() {
+            return tooltip;
+        }
+
+        /**
+         * Resets the icon and tooltip to their default state.
+         */
+        public void reset() {
+            currentIcon = AllIcons.Actions.Copy;
+            tooltip = "Copy to clipboard";
+        }
+    }
+
+    /** The currently active copy extension. */
+    private static CopyExtension activeExtension = null;
+    
+    /** The currently active extendable text field. */
+    private static ExtendableTextField activeField = null;
+    
+    /** Timer to revert the copy icon to its default state. */
+    private static final javax.swing.Timer revertTimer = new javax.swing.Timer(2000, ev -> {
+        if (activeExtension != null) {
+            activeExtension.reset();
+            if (activeField != null) {
+                activeField.repaint();
+            }
+            activeExtension = null;
+            activeField = null;
+        }
+    });
+    static {
+        revertTimer.setRepeats(false);
     }
 
     /**
-     * Hides the save credentials banner.
-     */
-    private void hideSaveBanner() {
-        pendingSave = null;
-        saveBanner.setVisible(false);
-        revalidate();
-    }
-
-    /**
-     * Adds a clipboard copy icon to the end of a text field.
+     * Adds an inline copy icon to the end of a text field.
      *
      * @param field The text field to decorate.
-     * @return The decorated text field.
+     * @return The decorated text field wrapped in a JPanel.
      */
-    private JTextField addInlineCopyIcon(JTextField field) {
+    private JPanel addInlineCopyIcon(ExtendableTextField field) {
         field.setEditable(false);
         field.setBackground(com.intellij.util.ui.UIUtil.getPanelBackground());
         field.setForeground(vaultDnsLabel.getForeground());
 
-        JLabel copyIcon = new JLabel(AllIcons.Actions.Copy);
-        copyIcon.setToolTipText("Copy to clipboard");
-        copyIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        copyIcon.addMouseListener(new java.awt.event.MouseAdapter() {
+        CopyExtension extension = new CopyExtension() {
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                String text = field.getText();
-                if (text != null && !text.isEmpty()) {
-                    StringSelection selection = new StringSelection(text);
-                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
+            public Runnable getActionOnClick() {
+                return () -> {
+                    String text = field.getText();
+                    if (text != null && !text.isEmpty()) {
+                        StringSelection selection = new StringSelection(text);
+                        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
 
-                    if (activeCopyIcon != null && activeCopyIcon != copyIcon) {
-                        activeCopyIcon.setIcon(AllIcons.Actions.Copy);
-                        activeCopyIcon.setToolTipText("Copy to clipboard");
-                    }
-
-                    copyIcon.setIcon(AllIcons.Actions.Checked);
-                    copyIcon.setToolTipText("Copied!");
-                    activeCopyIcon = copyIcon;
-
-                    if (revertTimer != null && revertTimer.isRunning()) {
-                        revertTimer.stop();
-                    }
-                    revertTimer = new javax.swing.Timer(3000, ev -> {
-                        if (activeCopyIcon != null) {
-                            activeCopyIcon.setIcon(AllIcons.Actions.Copy);
-                            activeCopyIcon.setToolTipText("Copy to clipboard");
-                            activeCopyIcon = null;
+                        if (activeExtension != null && activeExtension != this) {
+                            activeExtension.reset();
+                            if (activeField != null) {
+                                activeField.repaint();
+                            }
                         }
-                    });
-                    revertTimer.setRepeats(false);
-                    revertTimer.start();
-                }
+
+                        currentIcon = AllIcons.Actions.Checked;
+                        tooltip = "Copied!";
+                        field.repaint();
+
+                        JBPopupFactory.getInstance()
+                                .createHtmlTextBalloonBuilder("Copied to clipboard", MessageType.INFO, null)
+                                .setFadeoutTime(1000)
+                                .setAnimationCycle(200)
+                                .createBalloon()
+                                .show(new RelativePoint(field, new Point(field.getWidth() - 12, field.getHeight() / 2)), Balloon.Position.above);
+
+                        activeExtension = this;
+                        activeField = field;
+
+                        revertTimer.restart();
+                    }
+                };
             }
-        });
+        };
 
-        Border currentBorder = field.getBorder();
-        field.setBorder(BorderFactory.createCompoundBorder(currentBorder, JBUI.Borders.emptyRight(28)));
+        field.addExtension(extension);
 
-        field.setLayout(null);
-        field.add(copyIcon);
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.add(field, BorderLayout.CENTER);
 
-        field.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent e) {
-                int height = field.getHeight();
-                int width = field.getWidth();
-
-                Dimension prefSize = copyIcon.getPreferredSize();
-                int iconW = prefSize.width > 0 ? prefSize.width : 16;
-                int iconH = prefSize.height > 0 ? prefSize.height : 16;
-
-                copyIcon.setBounds(width - iconW - 10, (height - iconH) / 2, iconW, iconH);
-            }
-        });
-
-        return field;
+        return wrapper;
     }
 
     /**
      * Refreshes the vault information displayed in the panel using the current project context.
+     * Network-bound calls are dispatched to a pooled thread to avoid blocking the EDT.
      */
     public void refreshVaultInfo() {
         vaultNameValue.setText("");
@@ -407,26 +319,37 @@ public class VaultInfoPanel extends ToolboxPanel {
         domainTypeValue.setText("");
         userValue.setText("");
 
-        if (activeCopyIcon != null) {
-            activeCopyIcon.setIcon(AllIcons.Actions.Copy);
-            activeCopyIcon.setToolTipText("Copy to clipboard");
-            activeCopyIcon = null;
-        }
-
-        hideSaveBanner();
-
-        if (toolboxProject != null && toolboxProject.isConnected()) {
-            vaultNameValue.setText(toolboxProject.getVaultName());
-            vaultDnsValue.setText(toolboxProject.getVaultDNS());
-            vaultIdValue.setText(toolboxProject.getVaultId().toString());
-            vaultFamilyValue.setText(toolboxProject.getVaultFamily());
-            vaultApplicationValue.setText(toolboxProject.getVaultApplication());
-            domainTypeValue.setText(toolboxProject.getDomainType());
-
-            User user = toolboxProject.getVaultUser();
-            if (user != null) {
-                userValue.setText(user.getUserName());
+        if (activeExtension != null) {
+            activeExtension.reset();
+            if (activeField != null) {
+                activeField.repaint();
             }
+            activeExtension = null;
+            activeField = null;
         }
+
+        if (toolboxProject == null || !toolboxProject.isConnected()) return;
+
+        vaultDnsValue.setText(toolboxProject.getVaultDNS());
+
+        com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            String vaultName    = toolboxProject.getVaultName();
+            Integer vaultIdVal  = toolboxProject.getVaultId();
+            String vaultFamily  = toolboxProject.getVaultFamily();
+            String vaultApp     = toolboxProject.getVaultApplication();
+            String domainType   = toolboxProject.getDomainType();
+            User user           = toolboxProject.getVaultUser();
+
+            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater(() -> {
+                vaultNameValue.setText(vaultName != null ? vaultName : "");
+                vaultIdValue.setText(vaultIdVal != null ? vaultIdVal.toString() : "");
+                vaultFamilyValue.setText(vaultFamily != null ? vaultFamily : "");
+                vaultApplicationValue.setText(vaultApp != null ? vaultApp : "");
+                domainTypeValue.setText(domainType != null ? domainType : "");
+                if (user != null) {
+                    userValue.setText(user.getUserName());
+                }
+            });
+        });
     }
 }

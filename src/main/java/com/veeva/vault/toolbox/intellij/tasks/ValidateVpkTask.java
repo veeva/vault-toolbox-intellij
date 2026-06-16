@@ -47,6 +47,7 @@ public class ValidateVpkTask extends ToolboxModalTask {
             validateResponse = validatePackage(virtualFile.getPath());
 
             if (toolboxProject.handleSessionExpiration(validateResponse)) {
+                validateResponse = null;
                 return;
             }
         } catch (Exception e) {
@@ -109,6 +110,43 @@ public class ValidateVpkTask extends ToolboxModalTask {
             if (packageError != null && !packageError.isEmpty()) {
                 errorMsg = packageError;
             }
+
+            if (validateResponse.getResponseDetails().getPackageSteps() != null) {
+                StringBuilder stepsError = new StringBuilder();
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    for (var step : validateResponse.getResponseDetails().getPackageSteps()) {
+                        String stepJson = mapper.writeValueAsString(step);
+                        com.fasterxml.jackson.databind.JsonNode stepNode = mapper.readTree(stepJson);
+
+                        String stepName = stepNode.path("step_name").asText("Step");
+                        String stepErrorStr = stepNode.path("step_error").asText();
+
+                        java.util.List<String> innerErrors = new java.util.ArrayList<>();
+                        findErrorMessages(stepNode.path("step_error_details"), innerErrors);
+
+                        if ((stepErrorStr != null && !stepErrorStr.isEmpty() && !"null".equals(stepErrorStr)) || !innerErrors.isEmpty()) {
+                            if (stepsError.length() > 0) {
+                                stepsError.append("\n");
+                            }
+                            stepsError.append(stepName).append(":");
+                            if (stepErrorStr != null && !stepErrorStr.isEmpty() && !"null".equals(stepErrorStr)) {
+                                stepsError.append(" ").append(stepErrorStr);
+                            }
+                            for (String err : innerErrors) {
+                                if (err != null && !err.isEmpty() && !err.equals(stepErrorStr) && !"null".equals(err)) {
+                                    stepsError.append("\n  - ").append(err);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.warn("Error processing package steps JSON", e);
+                }
+                if (stepsError.length() > 0) {
+                    errorMsg = errorMsg + "\n\nDetails:\n" + stepsError.toString();
+                }
+            }
         }
 
         if ((errorMsg == null || errorMsg.isEmpty())
@@ -120,7 +158,48 @@ public class ValidateVpkTask extends ToolboxModalTask {
         if (errorMsg == null || errorMsg.isEmpty()) {
             errorMsg = validateResponse.getResponseStatus();
         }
+
         return errorMsg;
+    }
+
+    /**
+     * Recursively traverses a JSON node to extract relevant error messages.
+     *
+     * @param node the JSON node to traverse
+     * @param errors the list to populate with extracted error messages
+     */
+    private void findErrorMessages(com.fasterxml.jackson.databind.JsonNode node, java.util.List<String> errors) {
+        if (node.isObject()) {
+            java.util.Iterator<String> fieldNames = node.fieldNames();
+            while (fieldNames.hasNext()) {
+                String key = fieldNames.next();
+                com.fasterxml.jackson.databind.JsonNode value = node.get(key);
+                
+                if (key.equals("error_message") || key.equals("message") || key.equals("validation_message") || key.equals("error")) {
+                    errors.add(value.asText());
+                } else if (key.equals("validation_errors") || key.equals("package_errors")) {
+                    if (value.isArray()) {
+                        for (com.fasterxml.jackson.databind.JsonNode child : value) {
+                            if (child.isTextual()) {
+                                errors.add(child.asText());
+                            } else {
+                                findErrorMessages(child, errors);
+                            }
+                        }
+                    } else if (value.isTextual()) {
+                        errors.add(value.asText());
+                    } else {
+                        findErrorMessages(value, errors);
+                    }
+                } else if (!key.equals("step_error")) {
+                    findErrorMessages(value, errors);
+                }
+            }
+        } else if (node.isArray()) {
+            for (com.fasterxml.jackson.databind.JsonNode child : node) {
+                findErrorMessages(child, errors);
+            }
+        }
     }
 
     /**

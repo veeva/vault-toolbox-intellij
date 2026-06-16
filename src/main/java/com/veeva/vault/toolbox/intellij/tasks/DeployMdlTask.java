@@ -51,6 +51,12 @@ public class DeployMdlTask extends ToolboxTask {
 			vaultResponse = toolboxProject.getVaultClient().newRequest(MetaDataRequest.class)
 					.setRequestString(fileContent)
 					.executeMDLScript();
+			if (vaultResponse != null && vaultResponse.isFailure()) {
+				if (toolboxProject.handleSessionExpiration(vaultResponse)) {
+					vaultResponse = null;
+					return;
+				}
+			}
 			if (vaultResponse != null && !vaultResponse.isFailure()) {
 				String md5 = getMd5(fileContent);
 				toolboxProject.includeFile(psiFile.getVirtualFile().getPath(), md5);

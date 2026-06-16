@@ -32,12 +32,13 @@ public class ExtractMdlTask extends ToolboxTask {
     private final VirtualFile virtualFile;
     private final List<String> oldFiles = new ArrayList<>();
     private final List<String> newFiles = new ArrayList<>();
+    private boolean success = true;
 
     /**
      * @param project the IntelliJ project, may be {@code null}
      */
     public ExtractMdlTask(@Nullable Project project) {
-        super(project, "Extracting MDL from Vault");
+        super(project, "Extracting MDL from Vault", true);
 
         String vaultId = toolboxProject.getVaultId().toString();
         File extractDirectory = new File(toolboxProject.getMdlDirectory(), vaultId);
@@ -55,17 +56,29 @@ public class ExtractMdlTask extends ToolboxTask {
     @Override
     public void run(@NotNull ProgressIndicator indicator) {
         try {
+            if (toolboxProject.isProductionVault()) {
+                Message message = toolboxProject.newMessage();
+                message.append("This tool cannot be run in a Production domain.");
+                message.showError();
+                success = false;
+                return;
+            }
             if (virtualFile == null) {
                 logger.error("Could not resolve virtual file for directory: " + toolboxProject.getMdlDirectory());
+                success = false;
                 return;
             }
             toolboxProject.includeFile(virtualFile.getPath());
             loadOldFiles(virtualFile);
-            downloadAllMdl(virtualFile, null);
+            if (!downloadAllMdl(virtualFile, indicator)) {
+                success = false;
+                return;
+            }
             deleteMissingFiles();
         }
         catch (Exception e) {
             logger.error(e.getMessage(), e);
+            success = false;
         }
     }
 
@@ -99,56 +112,85 @@ public class ExtractMdlTask extends ToolboxTask {
     }
 
     /**
-     * Recursively pages through {@code vault_component__v} records, writing each
+     * Paginates through {@code vault_component__v} records, writing each
      * MDL definition to a file under the appropriate component-type subfolder.
      *
      * @param mdlDirectory the destination root for the extracted MDL files
-     * @param nextPage     the API pagination token, or {@code null} for the first page
+     * @param indicator    the progress indicator
      */
-    private void downloadAllMdl(VirtualFile mdlDirectory, String nextPage) {
-        try {
-            ComponentQueryResponse queryResponse;
-            if (nextPage == null) {
-                queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class)
-                        .componentDefinitionQuery(COMPONENT_QUERY);
-            }
-            else {
-                queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class)
-                        .componentDefinitionQueryByPage(nextPage);
-            }
-
-            if (queryResponse == null || queryResponse.isFailure()) {
-                return;
-            }
-
-            queryResponse.getData().forEach(queryResult -> {
-                try {
-                    String componentName = queryResult.getString("component_name__v");
-                    String componentType = queryResult.getString("component_type__v");
-                    String mdlDefinition = queryResult.getString("mdl_definition__v");
-
-                    if ("N/A".equals(mdlDefinition)) {
-                        return;
-                    }
-
-                    File componentTypeDirectory = new File(mdlDirectory.getPath(), componentType);
-                    FileIO.makeDirectories(componentTypeDirectory);
-
-                    File componentRecordFile = new File(componentTypeDirectory, componentType + "." + componentName + ".mdl");
-                    FileUtils.writeStringToFile(componentRecordFile, mdlDefinition, "UTF-8");
-                    newFiles.add(componentRecordFile.getAbsolutePath());
-                } catch (Exception e) {
-                    logger.error(e.getMessage(), e);
+    private boolean downloadAllMdl(VirtualFile mdlDirectory, ProgressIndicator indicator) {
+        indicator.setIndeterminate(true);
+        int page = 1;
+        String nextPage = null;
+        do {
+            indicator.checkCanceled();
+            indicator.setText("Extracting MDL components (Page " + page + ")...");
+            
+            try {
+                ComponentQueryResponse queryResponse;
+                if (nextPage == null) {
+                    queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class)
+                            .componentDefinitionQuery(COMPONENT_QUERY);
                 }
-            });
+                else {
+                    queryResponse = toolboxProject.getVaultClient().newRequest(ConfigurationMigrationRequest.class)
+                            .componentDefinitionQueryByPage(nextPage);
+                }
 
-            if (queryResponse.isPaginated() && queryResponse.getResponseDetails().getNextPage() != null) {
-                downloadAllMdl(mdlDirectory, queryResponse.getResponseDetails().getNextPage());
+                if (queryResponse == null || queryResponse.isFailure()) {
+                    if (queryResponse != null) {
+                        if (!toolboxProject.handleSessionExpiration(queryResponse)) {
+                            Message message = toolboxProject.newMessage();
+                            message.setTitle("Extract Failed");
+                            String error = queryResponse.getResponseMessage();
+                            if ((error == null || error.isEmpty()) && queryResponse.getErrors() != null && !queryResponse.getErrors().isEmpty()) {
+                                error = queryResponse.getErrors().get(0).getMessage();
+                            }
+                            message.append(error != null && !error.isEmpty() ? error : "Failed to extract MDL.");
+                            message.showError();
+                        }
+                    } else {
+                        Message message = toolboxProject.newMessage();
+                        message.setTitle("Extract Failed");
+                        message.append("No response received from Vault.");
+                        message.showError();
+                    }
+                    return false;
+                }
+
+                queryResponse.getData().forEach(queryResult -> {
+                    try {
+                        String componentName = queryResult.getString("component_name__v");
+                        String componentType = queryResult.getString("component_type__v");
+                        String mdlDefinition = queryResult.getString("mdl_definition__v");
+
+                        if ("N/A".equals(mdlDefinition)) {
+                            return;
+                        }
+
+                        File componentTypeDirectory = new File(mdlDirectory.getPath(), componentType);
+                        FileIO.makeDirectories(componentTypeDirectory);
+
+                        File componentRecordFile = new File(componentTypeDirectory, componentType + "." + componentName + ".mdl");
+                        FileUtils.writeStringToFile(componentRecordFile, mdlDefinition, "UTF-8");
+                        newFiles.add(componentRecordFile.getAbsolutePath());
+                    } catch (Exception e) {
+                        logger.error(e.getMessage(), e);
+                    }
+                });
+
+                if (queryResponse.isPaginated() && queryResponse.getResponseDetails().getNextPage() != null) {
+                    nextPage = queryResponse.getResponseDetails().getNextPage();
+                    page++;
+                } else {
+                    nextPage = null;
+                }
+            } catch (Exception e) {
+                logger.error(e.getMessage(), e);
+                return false;
             }
-        }
-        catch (Exception e) {
-            logger.error(e.getMessage(), e);
-        }
+        } while (nextPage != null);
+        return true;
     }
 
     /**
@@ -157,6 +199,9 @@ public class ExtractMdlTask extends ToolboxTask {
     @Override
     public void onSuccess() {
         super.onSuccess();
+        if (!success) {
+            return;
+        }
         try {
             if (toolboxProject != null) {
                 Message message = toolboxProject.newMessage();

@@ -9,6 +9,7 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.treeStructure.Tree;
+import com.intellij.ui.TreeSpeedSearch;
 import com.veeva.vault.toolbox.intellij.listeners.ToolboxTreeNodeListener;
 import com.veeva.vault.toolbox.intellij.project.ToolboxProject;
 import com.veeva.vault.toolbox.core.models.VpkBuildManifest;
@@ -21,8 +22,13 @@ import javax.swing.*;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -65,6 +71,14 @@ public class ComponentTreePanel extends JPanel {
 		tree.setCellRenderer(renderer);
 		tree.addMouseListener(new ToolboxTreeNodeMouseListener(tree));
 
+		tree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
+
+		TreeSpeedSearch.installOn(tree);
+
+		tree.setDragEnabled(true);
+		tree.setDropMode(DropMode.INSERT);
+		tree.setTransferHandler(new ComponentTransferHandler());
+
 		this.add(createToolbar(), BorderLayout.NORTH);
 		this.add(new JScrollPane(tree), BorderLayout.CENTER);
 
@@ -78,22 +92,21 @@ public class ComponentTreePanel extends JPanel {
 	 */
 	private JComponent createToolbar() {
 		DefaultActionGroup actionGroup = new DefaultActionGroup();
-		
+
 		actionGroup.add(new AnAction("Add Component", "Add a new component", AllIcons.General.Add) {
 			@Override
 			public void actionPerformed(@NotNull AnActionEvent e) {
 				addComponent();
 			}
 		});
-		
-		actionGroup.add(new AnAction("Remove Component", "Remove selected component", AllIcons.General.Remove) {
-			@Override
+
+		actionGroup.add(new AnAction("Remove Component", "Remove selected component(s)", AllIcons.General.Remove) {			@Override
 			public void actionPerformed(@NotNull AnActionEvent e) {
 				removeComponent();
 			}
 			@Override
 			public void update(@NotNull AnActionEvent e) {
-				e.getPresentation().setEnabled(getSelectedComponent() != null);
+				e.getPresentation().setEnabled(!getSelectedComponents().isEmpty());
 			}
 		});
 
@@ -172,37 +185,57 @@ public class ComponentTreePanel extends JPanel {
 		selectComponentAtIndex(newIndex);
 	}
 	
+	/**
+	 * Checks if the given path represents a valid file type.
+	 *
+	 * @param path the file path
+	 * @return true if valid, false otherwise
+	 */
 	private boolean isValidFileType(String path) {
 		if (path == null) return false;
 		String lowerPath = path.toLowerCase();
 		return lowerPath.endsWith(".mdl") || lowerPath.endsWith(".csv") || lowerPath.endsWith(".json");
 	}
 
-	private VpkBuildManifest.Component getSelectedComponent() {
-		TreePath selectionPath = tree.getSelectionPath();
-		if (selectionPath != null) {
-			ToolboxTreeNode selectedNode = (ToolboxTreeNode) selectionPath.getLastPathComponent();
-			Object userObject = selectedNode.getUserObject();
-			if (userObject instanceof VpkBuildManifest.Component) {
-				return (VpkBuildManifest.Component) userObject;
+	private List<VpkBuildManifest.Component> getSelectedComponents() {
+		List<VpkBuildManifest.Component> components = new ArrayList<>();
+		TreePath[] selectionPaths = tree.getSelectionPaths();
+		if (selectionPaths != null) {
+			for (TreePath path : selectionPaths) {
+				ToolboxTreeNode selectedNode = (ToolboxTreeNode) path.getLastPathComponent();
+				Object userObject = selectedNode.getUserObject();
+				if (userObject instanceof VpkBuildManifest.Component && !components.contains(userObject)) {
+					components.add((VpkBuildManifest.Component) userObject);
+				}
 			}
 		}
-		return null;
+		return components;
+	}
+
+	private VpkBuildManifest.Component getSelectedComponent() {
+		List<VpkBuildManifest.Component> selected = getSelectedComponents();
+		return selected.isEmpty() ? null : selected.get(0);
 	}
 
 	/**
-	 * Removes the selected component from the manifest and refreshes the tree.
+	 * Removes the selected component(s) from the manifest and refreshes the tree.
 	 */
 	private void removeComponent() {
-		VpkBuildManifest.Component component = getSelectedComponent();
-		if (component != null) {
-			int index = buildManifest.getComponents().indexOf(component);
-			buildManifest.removeComponent(component);
+		List<VpkBuildManifest.Component> components = getSelectedComponents();
+		if (!components.isEmpty()) {
+			int minIndex = Integer.MAX_VALUE;
+			for (VpkBuildManifest.Component component : components) {
+				int index = buildManifest.getComponents().indexOf(component);
+				if (index != -1 && index < minIndex) {
+					minIndex = index;
+				}
+				buildManifest.removeComponent(component);
+			}
 			regenerateStepLabels();
 			buildTree();
-			
-			if (buildManifest.getComponents().size() > 0) {
-				int newIndex = Math.min(index, buildManifest.getComponents().size() - 1);
+
+			if (buildManifest.getComponents().size() > 0 && minIndex != Integer.MAX_VALUE) {
+				int newIndex = Math.min(minIndex, buildManifest.getComponents().size() - 1);
 				selectComponentAtIndex(newIndex);
 			}
 		}
@@ -266,16 +299,34 @@ public class ComponentTreePanel extends JPanel {
 		}
 	}
 
+	/**
+	 * Checks if the selected component can be moved up.
+	 *
+	 * @return true if it can be moved up, false otherwise
+	 */
 	private boolean canMoveUp() {
+		if (getSelectedComponents().size() != 1) return false;
 		int index = getSelectedComponentIndex();
 		return index > 0;
 	}
 
+	/**
+	 * Checks if the selected component can be moved down.
+	 *
+	 * @return true if it can be moved down, false otherwise
+	 */
 	private boolean canMoveDown() {
+		if (getSelectedComponents().size() != 1) return false;
 		int index = getSelectedComponentIndex();
 		return index >= 0 && buildManifest.getComponents() != null && index < buildManifest.getComponents().size() - 1;
 	}
 
+	/**
+	 * Determines the file type from the path.
+	 *
+	 * @param path the file path
+	 * @return the file type string
+	 */
 	private String getFileType(String path) {
 		if (path == null) return "Unknown";
 		String lowerPath = path.toLowerCase();
@@ -381,6 +432,106 @@ public class ComponentTreePanel extends JPanel {
 			dialog.show();
 		} else {
 			Messages.showErrorDialog(this, "CSV file not found: " + csvFile.getAbsolutePath(), "Error");
+		}
+	}
+
+	/**
+	 * Handles drag and drop operations within the component tree.
+	 */
+	private class ComponentTransferHandler extends TransferHandler {
+		private DataFlavor nodesFlavor;
+
+		public ComponentTransferHandler() {
+			try {
+				String mimeType = DataFlavor.javaJVMLocalObjectMimeType + ";class=\"" +
+						VpkBuildManifest.Component[].class.getName() + "\"";
+				nodesFlavor = new DataFlavor(mimeType);
+			} catch (ClassNotFoundException e) {
+				logger.error("ClassNotFound: " + e.getMessage());
+			}
+		}
+
+		@Override
+		public boolean canImport(TransferSupport support) {
+			if (!support.isDrop() || nodesFlavor == null) return false;
+			support.setShowDropLocation(true);
+			if (!support.isDataFlavorSupported(nodesFlavor)) return false;
+			
+			JTree.DropLocation dl = (JTree.DropLocation) support.getDropLocation();
+			TreePath dest = dl.getPath();
+			return dest != null;
+		}
+
+		@Override
+		protected Transferable createTransferable(JComponent c) {
+			List<VpkBuildManifest.Component> selected = getSelectedComponents();
+			if (selected.isEmpty()) return null;
+			return new Transferable() {
+				@Override
+				public DataFlavor[] getTransferDataFlavors() { return new DataFlavor[]{nodesFlavor}; }
+				@Override
+				public boolean isDataFlavorSupported(DataFlavor flavor) { return nodesFlavor.equals(flavor); }
+				@Override
+				public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+					if (!isDataFlavorSupported(flavor)) throw new UnsupportedFlavorException(flavor);
+					return selected.toArray(new VpkBuildManifest.Component[0]);
+				}
+			};
+		}
+
+		@Override
+		public int getSourceActions(JComponent c) {
+			return MOVE;
+		}
+
+		@Override
+		public boolean importData(TransferSupport support) {
+			if (!canImport(support)) return false;
+			
+			try {
+				VpkBuildManifest.Component[] nodes = (VpkBuildManifest.Component[]) support.getTransferable().getTransferData(nodesFlavor);
+				JTree.DropLocation dl = (JTree.DropLocation) support.getDropLocation();
+				TreePath dest = dl.getPath();
+				
+				ToolboxTreeNode parent = (ToolboxTreeNode) dest.getLastPathComponent();
+				Object userObject = parent.getUserObject();
+				int dropIndex = 0;
+				if (userObject instanceof VpkBuildManifest.Component) {
+					dropIndex = buildManifest.getComponents().indexOf((VpkBuildManifest.Component) userObject);
+				} else if (parent == rootNode) {
+					dropIndex = buildManifest.getComponents().size();
+				} else {
+					return false;
+				}
+
+				List<VpkBuildManifest.Component> componentsList = buildManifest.getComponents();
+				for (VpkBuildManifest.Component comp : nodes) {
+					componentsList.remove(comp);
+				}
+				
+				dropIndex = Math.min(dropIndex, componentsList.size());
+				for (int i = 0; i < nodes.length; i++) {
+					componentsList.add(dropIndex + i, nodes[i]);
+				}
+				
+				regenerateStepLabels();
+				buildTree();
+				
+				tree.clearSelection();
+				for (VpkBuildManifest.Component comp : nodes) {
+					int newIdx = buildManifest.getComponents().indexOf(comp);
+					if (newIdx != -1) {
+						TreeNode node = rootNode.getChildAt(newIdx);
+						TreePath path = new TreePath(((ToolboxTreeNode) node).getPath());
+						tree.addSelectionPath(path);
+						tree.scrollPathToVisible(path);
+					}
+				}
+				return true;
+			} catch (Exception e) {
+				logger.error("Import data failed: " + e.getMessage(), e);
+			}
+			return false;
 		}
 	}
 }

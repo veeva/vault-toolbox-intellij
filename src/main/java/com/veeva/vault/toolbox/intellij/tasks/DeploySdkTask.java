@@ -50,13 +50,25 @@ public class DeploySdkTask extends ToolboxTask {
 				message.showError();
 				return;
 			}
-			String fileContent = psiFile.getText();
+			String[] fileInfo = {null, null, null};
+			ApplicationManager.getApplication().runReadAction(() -> {
+				fileInfo[0] = psiFile.getText();
+				fileInfo[1] = psiFile.getName();
+				fileInfo[2] = psiFile.getVirtualFile().getPath();
+			});
+			String fileContent = fileInfo[0];
 			vaultResponse = toolboxProject.getVaultClient().newRequest(SDKRequest.class)
-					.setBinaryFile(psiFile.getName(), fileContent.getBytes(StandardCharsets.UTF_8))
+					.setBinaryFile(fileInfo[1], fileContent.getBytes(StandardCharsets.UTF_8))
 					.addOrReplaceSingleSourceCodeFile();
+			if (vaultResponse != null && vaultResponse.isFailure()) {
+				if (toolboxProject.handleSessionExpiration(vaultResponse)) {
+					vaultResponse = null;
+					return;
+				}
+			}
 			if (vaultResponse != null && !vaultResponse.isFailure()) {
 				String md5 = getMd5(fileContent);
-				toolboxProject.includeFile(psiFile.getVirtualFile().getPath(), md5);
+				toolboxProject.includeFile(fileInfo[2], md5);
 			}
 			if (vaultResponse != null) {
 				logger.debug("deployment results = " + vaultResponse.getResponseStatus());
